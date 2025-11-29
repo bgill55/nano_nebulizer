@@ -133,7 +133,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Version / Info */}
             <div className={`text-center pt-4 border-t ${isLight ? 'border-slate-100' : 'border-white/5'}`}>
                 <p className={`text-xs ${isLight ? 'text-slate-400' : 'text-gray-600'}`}>
-                    Nebula AI v1.2.0 • Powered by Google Gemini
+                    Nebula AI v1.2.1 • Powered by Google Gemini
+                </p>
+                <p className="text-[10px] text-gray-500 mt-1">
+                    System Status: Stable (UUID Fix Applied)
                 </p>
             </div>
 
