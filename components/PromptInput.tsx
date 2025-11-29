@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { AppTheme } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices } from 'lucide-react';
+import { AppTheme, GenerationMode } from '../types';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 
 interface PromptInputProps {
@@ -14,6 +14,7 @@ interface PromptInputProps {
   isMain?: boolean;
   isLoading?: boolean;
   theme?: AppTheme;
+  mode?: GenerationMode;
   onOpenTemplates?: () => void;
   inputImage?: string | null;
   onImageUpload?: (file: File) => void;
@@ -78,6 +79,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
   isMain = false,
   isLoading = false,
   theme = 'Nebula Dark',
+  mode = 'image',
   onOpenTemplates,
   inputImage,
   onImageUpload,
@@ -103,17 +105,17 @@ const PromptInput: React.FC<PromptInputProps> = ({
     
     if (isLoading) {
       setProgress(0);
-      setLoadingText("Initializing...");
+      setLoadingText(mode === 'video' ? "Rendering Frames..." : "Initializing...");
       
       const startTime = Date.now();
-      const duration = 8000; // Expected duration ~8s (asymptotic target)
+      const duration = mode === 'video' ? 15000 : 8000; // Slower for video
 
       interval = setInterval(() => {
         const elapsed = Date.now() - startTime;
         
         // Asymptotic curve: fast start, slows down, never hits 100% until done
         // Formula: 1 - e^(-t / duration)
-        let nextProgress = (1 - Math.exp(-elapsed / 4000)) * 100;
+        let nextProgress = (1 - Math.exp(-elapsed / (duration / 2))) * 100;
         
         // Cap at 98% until actually finished
         if (nextProgress > 98) nextProgress = 98;
@@ -121,8 +123,15 @@ const PromptInput: React.FC<PromptInputProps> = ({
         setProgress(nextProgress);
 
         // Update Text Phase
-        const phase = LOADING_PHASES.slice().reverse().find(phase => nextProgress >= phase.p);
-        if (phase) setLoadingText(phase.text);
+        if (mode === 'image') {
+            const phase = LOADING_PHASES.slice().reverse().find(phase => nextProgress >= phase.p);
+            if (phase) setLoadingText(phase.text);
+        } else {
+            if (nextProgress < 30) setLoadingText("Initializing Veo...");
+            else if (nextProgress < 60) setLoadingText("Generating Frames...");
+            else if (nextProgress < 80) setLoadingText("Encoding Video...");
+            else setLoadingText("Finalizing...");
+        }
 
       }, 100);
     } else {
@@ -137,7 +146,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
     }
 
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [isLoading, mode]);
 
   // Click outside listener for history dropdown
   useEffect(() => {
@@ -244,7 +253,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
                   <X size={12} />
                 </button>
               </div>
-              <div className={`text-[10px] mt-1 font-mono ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>Image Reference</div>
+              <div className={`text-[10px] mt-1 font-mono ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
+                  {mode === 'video' ? 'Start Frame' : 'Image Reference'}
+              </div>
             </div>
           )}
         </div>
@@ -271,7 +282,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                             : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
                         ${inputImage ? (isLight ? 'border-cyan-400 text-cyan-600 bg-cyan-50' : 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10') : ''}
                     `}
-                    title="Upload Reference Image"
+                    title={mode === 'video' ? "Upload Start Frame (Image-to-Video)" : "Upload Reference Image"}
                  >
                     {inputImage ? <ImageIcon size={14} /> : <Paperclip size={14} />} 
                  </button>
@@ -412,7 +423,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
                     <div className="flex flex-col items-center gap-1 z-10">
                         <div className="flex items-center gap-2">
-                            <Sparkles size={16} className={`animate-spin ${isLight ? 'text-purple-600' : 'text-cyan-400'}`} />
+                            {mode === 'video' ? <Film size={16} className={`animate-pulse ${isLight ? 'text-purple-600' : 'text-cyan-400'}`} /> : <Sparkles size={16} className={`animate-spin ${isLight ? 'text-purple-600' : 'text-cyan-400'}`} />}
                             <span className={`text-xs font-bold uppercase tracking-widest ${isLight ? 'text-slate-700' : 'text-cyan-100'}`}>
                                 {Math.round(progress)}%
                             </span>
@@ -425,7 +436,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
               ) : (
                 <>
                     <span className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                        <Wand2 size={16} /> Generate
+                        {mode === 'video' ? <Film size={16} /> : <Wand2 size={16} />} Generate
                     </span>
                 </>
               )}

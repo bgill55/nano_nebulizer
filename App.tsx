@@ -11,7 +11,7 @@ import TemplateModal from './components/TemplateModal';
 import SettingsModal from './components/SettingsModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
-import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory } from './services/storageService';
+import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID } from './services/storageService';
 import { RefreshCcw, AlertCircle, Key, Zap } from 'lucide-react';
 
 const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, bad anatomy, ugly, pixelated, watermark, text, signature, worst quality, deformed, disfigured, cropped, mutation, bad proportions, extra limbs, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck";
@@ -66,7 +66,9 @@ const App: React.FC = () => {
       } else {
         setHasKey(true);
       }
-      setGalleryImages(getGallery());
+      
+      const imgs = await getGallery();
+      setGalleryImages(imgs);
     };
     init();
   }, []);
@@ -189,13 +191,14 @@ const App: React.FC = () => {
              // VIDEO GENERATION
              const videoUrl = await generateVideo(config);
              setGeneratedImages([{
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 url: videoUrl,
                 type: 'video',
                 prompt: config.prompt,
                 timestamp: Date.now(),
                 aspectRatio: config.aspectRatio,
-                model: config.model
+                model: config.model,
+                negativePrompt: config.negativePrompt
              }]);
         } else {
              // IMAGE GENERATION
@@ -216,7 +219,7 @@ const App: React.FC = () => {
                  });
        
                  return {
-                     id: crypto.randomUUID(),
+                     id: generateUUID(),
                      url,
                      type: 'image',
                      prompt: config.prompt,
@@ -224,7 +227,8 @@ const App: React.FC = () => {
                      style: config.style,
                      aspectRatio: config.aspectRatio,
                      model: config.model,
-                     seed: effectiveSeed
+                     seed: effectiveSeed,
+                     negativePrompt: config.negativePrompt
                  } as GeneratedImage;
              });
        
@@ -274,7 +278,7 @@ const App: React.FC = () => {
             });
 
             return {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 url,
                 type: 'image',
                 prompt: config.prompt,
@@ -282,7 +286,8 @@ const App: React.FC = () => {
                 style: config.style,
                 aspectRatio: config.aspectRatio,
                 model: config.model,
-                seed: effectiveSeed
+                seed: effectiveSeed,
+                negativePrompt: config.negativePrompt
             } as GeneratedImage;
         });
 
@@ -296,8 +301,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSaveToGallery = (image: GeneratedImage) => {
-    const updatedGallery = saveToGallery(image);
+  const handleSaveToGallery = async (image: GeneratedImage) => {
+    const updatedGallery = await saveToGallery(image);
     setGalleryImages(updatedGallery);
   };
 
@@ -313,7 +318,7 @@ const App: React.FC = () => {
           if (!prev) return null;
           return prev.map(img => 
               img.id === targetImage.id 
-              ? { ...img, url: upscaledUrl, id: crypto.randomUUID() } 
+              ? { ...img, url: upscaledUrl, id: generateUUID() } 
               : img
           );
       });
@@ -343,8 +348,8 @@ const App: React.FC = () => {
       }
   };
 
-  const handleDeleteImage = (id: string) => {
-    const updated = removeFromGallery(id);
+  const handleDeleteImage = async (id: string) => {
+    const updated = await removeFromGallery(id);
     setGalleryImages(updated);
   };
 
@@ -352,6 +357,7 @@ const App: React.FC = () => {
     setConfig(prev => ({
         ...prev,
         prompt: image.prompt,
+        negativePrompt: image.negativePrompt || DEFAULT_NEGATIVE_PROMPT,
         style: image.style || prev.style,
         aspectRatio: image.aspectRatio || prev.aspectRatio,
         model: image.model || prev.model,
@@ -461,6 +467,7 @@ const App: React.FC = () => {
                             isMain={true}
                             isLoading={isGenerating}
                             theme={config.theme}
+                            mode={config.mode}
                             onOpenTemplates={() => setIsTemplatesOpen(true)}
                             inputImage={config.inputImage}
                             onImageUpload={handleImageUpload}

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, ArrowRight, Layout, Search, Save, Edit3, Check, AlertCircle } from 'lucide-react';
 import { PromptTemplate, AppTheme } from '../types';
-import { saveTemplate, deleteTemplate, getTemplates } from '../services/storageService';
+import { saveTemplate, deleteTemplate, getTemplates, generateUUID } from '../services/storageService';
 
 interface TemplateModalProps {
   isOpen: boolean;
@@ -48,7 +48,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
     if (!newTemplateName.trim() || !newTemplateContent.trim()) return;
 
     const newTemplate: PromptTemplate = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       name: newTemplateName.trim(),
       content: newTemplateContent.trim(),
       timestamp: Date.now()

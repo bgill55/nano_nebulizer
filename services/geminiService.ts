@@ -155,13 +155,17 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
     try {
         let request: any = {
             model: model,
-            prompt: prompt,
             config: {
                 numberOfVideos: 1,
                 resolution: '720p', // Veo Fast supports 720p
                 aspectRatio: aspectRatio,
             }
         };
+
+        // If prompt is present, add it. Veo can work with just image, or just prompt, or both.
+        if (prompt && prompt.trim()) {
+            request.prompt = prompt;
+        }
 
         // If input image exists, use it (Image-to-Video)
         if (inputImage) {
@@ -174,10 +178,7 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
             }
         }
         
-        // Seed is handled internally by Veo or random if not exposed, 
-        // currently Veo SDK doesn't strictly document 'seed' in config, but we pass valid params.
-
-        console.log("Starting Video Generation...");
+        console.log("Starting Video Generation...", request);
         let operation = await ai.models.generateVideos(request);
 
         // Polling loop
@@ -319,7 +320,11 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
             const candidate = response.candidates[0];
 
             if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-                throw new Error(`Generation stopped. Reason: ${candidate.finishReason}`);
+                let msg = `Generation stopped. Reason: ${candidate.finishReason}`;
+                if (candidate.finishReason === 'IMAGE_OTHER') {
+                    msg = "Generation failed due to content policies (IMAGE_OTHER). The model blocked this specific request. Try changing your prompt or style, or avoid sensitive/copyrighted subjects.";
+                }
+                throw new Error(msg);
             }
 
             const resParts = candidate.content?.parts;
@@ -389,7 +394,11 @@ export const upscaleImage = async (imageDataUrl: string, aspectRatio: string): P
         const candidate = response.candidates[0];
 
         if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-             throw new Error(`Upscaling stopped. Reason: ${candidate.finishReason}`);
+             let msg = `Upscaling stopped. Reason: ${candidate.finishReason}`;
+             if (candidate.finishReason === 'IMAGE_OTHER') {
+                 msg = "Upscaling failed due to content policies (IMAGE_OTHER). The model refused to process this specific image.";
+             }
+             throw new Error(msg);
         }
 
         const parts = candidate.content?.parts;

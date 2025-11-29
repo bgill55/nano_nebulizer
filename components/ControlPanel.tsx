@@ -83,7 +83,7 @@ const PRESETS = [
   }
 ];
 
-const MagneticWrapper = ({ children, className }: { children: React.ReactNode, className?: string }) => {
+const MagneticWrapper: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => {
     const ref = useRef<HTMLDivElement>(null);
 
     const handleMouseMove = (e: React.MouseEvent) => {

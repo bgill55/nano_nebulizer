@@ -38,6 +38,7 @@ export interface GeneratedImage {
     aspectRatio?: string;
     model?: ModelType;
     seed?: number;
+    negativePrompt?: string;
 }
 
 export interface PromptTemplate {

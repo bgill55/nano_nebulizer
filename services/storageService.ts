@@ -1,72 +1,126 @@
 
 import { GeneratedImage, PromptTemplate } from "../types";
+import { openDB } from 'idb';
 
-const GALLERY_STORAGE_KEY = 'nebula_gallery';
+const GALLERY_DB_NAME = 'nebula_gallery_db';
+const GALLERY_STORE_NAME = 'images';
 const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
-const MAX_ITEMS = 10; // Limit to prevent LocalStorage quota exceeded (Base64 is heavy)
+const MAX_GALLERY_ITEMS = 20;
 const MAX_HISTORY_ITEMS = 20;
 
-// --- Gallery Logic ---
+// --- Utility ---
 
-export const getGallery = (): GeneratedImage[] => {
+export const generateUUID = (): string => {
+    // Native support check
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    // Fallback for non-secure contexts
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
+// --- Gallery Logic (IndexedDB) ---
+
+const initDB = async () => {
+    return openDB(GALLERY_DB_NAME, 1, {
+        upgrade(db) {
+            if (!db.objectStoreNames.contains(GALLERY_STORE_NAME)) {
+                const store = db.createObjectStore(GALLERY_STORE_NAME, { keyPath: 'id' });
+                store.createIndex('timestamp', 'timestamp', { unique: false });
+            }
+        },
+    });
+};
+
+export const getGallery = async (): Promise<GeneratedImage[]> => {
     try {
-        const stored = localStorage.getItem(GALLERY_STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
+        const db = await initDB();
+        const allItems = await db.getAllFromIndex(GALLERY_STORE_NAME, 'timestamp');
+        // Return reversed (newest first)
+        return allItems.reverse();
     } catch (e) {
-        console.error("Failed to load gallery", e);
+        console.error("Failed to load gallery from IndexedDB", e);
         return [];
     }
 };
 
-export const saveToGallery = (image: GeneratedImage): GeneratedImage[] => {
+const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+};
+
+export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedImage[]> => {
     try {
-        const current = getGallery();
+        const db = await initDB();
         
-        // Add new image to the beginning
-        const updated = [image, ...current];
+        // Ensure data is persistent (convert blob URLs to Base64 if needed)
+        // Video blobs from Veo are usually blob: URLs which are temporary.
+        // We must fetch and convert them to store permanently.
+        let storageImage = { ...image };
         
-        // Trim to max items
-        if (updated.length > MAX_ITEMS) {
-            updated.length = MAX_ITEMS;
+        if (storageImage.url.startsWith('blob:')) {
+            try {
+                const response = await fetch(storageImage.url);
+                const blob = await response.blob();
+                const base64 = await blobToBase64(blob);
+                storageImage.url = base64;
+            } catch (err) {
+                console.warn("Failed to convert blob to base64 for storage", err);
+                // Continue trying to save original url, though it might expire
+            }
         }
 
-        try {
-            localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(updated));
-        } catch (e) {
-            // Quota exceeded? Try removing more items
-            console.warn("Storage quota exceeded, removing oldest items...");
-            while (updated.length > 0) {
-                updated.pop(); // Remove oldest
-                try {
-                    localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(updated));
-                    break; // Success
-                } catch (retryErr) {
-                    continue; // Still full, pop another
+        const tx = db.transaction(GALLERY_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(GALLERY_STORE_NAME);
+        
+        await store.put(storageImage);
+        
+        // Quota Management: Check count
+        const count = await store.count();
+        if (count > MAX_GALLERY_ITEMS) {
+            // Delete oldest
+            // IndexedDB 'getAllKeys' returns sorted by key (id) usually, but we need sorted by timestamp.
+            // Using a cursor or index is better.
+            const index = store.index('timestamp');
+            const keys = await index.getAllKeys(); // sorted by timestamp ascending (oldest first)
+            
+            const itemsToDelete = count - MAX_GALLERY_ITEMS;
+            for (let i = 0; i < itemsToDelete; i++) {
+                if (keys[i]) {
+                    await store.delete(keys[i]);
                 }
             }
         }
         
-        return updated;
+        await tx.done;
+        return getGallery();
     } catch (e) {
         console.error("Failed to save to gallery", e);
         return getGallery();
     }
 };
 
-export const removeFromGallery = (id: string): GeneratedImage[] => {
+export const removeFromGallery = async (id: string): Promise<GeneratedImage[]> => {
     try {
-        const current = getGallery();
-        const updated = current.filter(img => img.id !== id);
-        localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(updated));
-        return updated;
+        const db = await initDB();
+        await db.delete(GALLERY_STORE_NAME, id);
+        return getGallery();
     } catch (e) {
         console.error("Failed to remove from gallery", e);
         return getGallery();
     }
 };
 
-// --- Template Logic ---
+// --- Template Logic (LocalStorage) ---
 
 const DEFAULT_TEMPLATES: PromptTemplate[] = [
     {
@@ -99,7 +153,6 @@ export const getTemplates = (): PromptTemplate[] => {
     try {
         const stored = localStorage.getItem(TEMPLATE_STORAGE_KEY);
         if (!stored) {
-            // Initialize with defaults if empty
             localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(DEFAULT_TEMPLATES));
             return DEFAULT_TEMPLATES;
         }
@@ -134,14 +187,13 @@ export const deleteTemplate = (id: string): PromptTemplate[] => {
     }
 };
 
-// --- Prompt History Logic ---
+// --- Prompt History Logic (LocalStorage) ---
 
 export const getPromptHistory = (): string[] => {
     try {
         const stored = localStorage.getItem(PROMPT_HISTORY_KEY);
         return stored ? JSON.parse(stored) : [];
     } catch (e) {
-        console.error("Failed to load prompt history", e);
         return [];
     }
 };
@@ -150,15 +202,11 @@ export const savePromptToHistory = (prompt: string): string[] => {
     if (!prompt || !prompt.trim()) return getPromptHistory();
     try {
         const current = getPromptHistory();
-        // Remove duplicates and filter out empty strings
         const filtered = current.filter(p => p !== prompt && p.trim() !== '');
-        // Add to front and limit size
         const updated = [prompt, ...filtered].slice(0, MAX_HISTORY_ITEMS);
-        
         localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(updated));
         return updated;
     } catch (e) {
-        console.error("Failed to save prompt history", e);
         return getPromptHistory();
     }
 };
