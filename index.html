@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <!-- 1. POLYFILL: Fixes "process is not defined" crash immediately (This is JS, not TS) -->
+    <!-- 1. POLYFILL: Fixes "process is not defined" crash immediately -->
     <script>
       window.process = { env: { API_KEY: '' } };
     </script>
@@ -75,21 +75,21 @@
   <script type="importmap">
 {
   "imports": {
-    "vite": "https://aistudiocdn.com/vite@^7.2.4",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "idb": "https://aistudiocdn.com/idb@^8.0.3"
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "idb": "https://aistudiocdn.com/idb@^8.0.3",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
-    <!-- 2. ENTRY POINT: Loads your React App (Crucial for Local Dev) -->
+    <!-- 2. ENTRY POINT: Loads your React App -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { X, Trash2, Copy, Zap, Calendar } from 'lucide-react';
+import { X, Trash2, Copy, Zap, Calendar, Download } from 'lucide-react';
 import { GeneratedImage } from '../types';
 
 interface GalleryModalProps {
@@ -19,6 +20,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const handleDownload = (img: GeneratedImage) => {
+      const link = document.createElement('a');
+      link.href = img.url;
+      link.download = `nebula-${img.type === 'video' ? 'video' : 'art'}-${img.timestamp}.${img.type === 'video' ? 'mp4' : 'png'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -37,7 +47,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
               <span className="text-cyan-400">///</span> Gallery
             </h3>
             <p className="text-xs text-gray-400 mt-1">
-              Locally stored history (Max 10 items)
+              Locally stored history (Max 20 items)
             </p>
           </div>
           <button 
@@ -66,11 +76,15 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                 >
                   {/* Image Aspect Wrapper */}
                   <div className="aspect-square relative overflow-hidden bg-black/20">
-                    <img 
-                      src={img.url} 
-                      alt={img.prompt}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
+                    {img.type === 'video' ? (
+                         <video src={img.url} className="w-full h-full object-cover opacity-80" muted loop onMouseOver={e => e.currentTarget.play()} onMouseOut={e => e.currentTarget.pause()} />
+                    ) : (
+                         <img 
+                            src={img.url} 
+                            alt={img.prompt}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                         />
+                    )}
                     
                     {/* Overlay Actions */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
@@ -81,15 +95,28 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                                 onSelect(img);
                             }}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg"
+                            title="Reuse Settings"
                          >
                             <Zap size={14} /> Reuse
                          </button>
+                         
+                         <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(img);
+                            }}
+                            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm border border-white/10"
+                            title="Download"
+                         >
+                            <Download size={14} />
+                         </button>
+
                          <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete(img.id);
                             }}
-                            className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500 hover:text-white text-red-400 transition-colors backdrop-blur-sm"
+                            className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500 hover:text-white text-red-400 transition-colors backdrop-blur-sm border border-red-500/20"
                             title="Delete"
                          >
                             <Trash2 size={14} />
@@ -102,7 +129,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
                          <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/5">
-                            {img.style || 'No Style'}
+                            {img.type === 'video' ? 'Video' : (img.style || 'No Style')}
                          </span>
                          <span className="text-[10px] text-gray-500 font-mono">
                             {new Date(img.timestamp).toLocaleDateString()}

@@ -232,7 +232,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                         className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-purple-500/30 rounded-lg text-sm font-medium transition-all text-purple-200 disabled:opacity-50"
                     >
                         <Edit2 size={16} />
-                        Edit / In-paint
+                        Edit
                     </button>
                 )}
 
