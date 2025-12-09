@@ -12,6 +12,7 @@ import SettingsModal from './components/SettingsModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
 import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID } from './services/storageService';
+import { playPowerUp, playSuccess, playError } from './services/audioService';
 import { RefreshCcw, AlertCircle, Key, Zap } from 'lucide-react';
 
 const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, bad anatomy, ugly, pixelated, watermark, text, signature, worst quality, deformed, disfigured, cropped, mutation, bad proportions, extra limbs, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck";
@@ -175,10 +176,12 @@ const App: React.FC = () => {
       setError("Please describe the output you want to generate or upload a reference.");
       setShowFreeTierSuggestion(false);
       setTimeout(() => setError(null), 3000);
+      playError();
       return;
     }
 
     setIsGenerating(true);
+    playPowerUp();
     setError(null);
     setShowFreeTierSuggestion(false);
     setGeneratedImages(null);
@@ -201,6 +204,7 @@ const App: React.FC = () => {
                 model: config.model,
                 negativePrompt: config.negativePrompt
              }]);
+             playSuccess();
         } else {
              // IMAGE GENERATION
              let enhancedPrompt = config.prompt;
@@ -235,10 +239,12 @@ const App: React.FC = () => {
        
              const results = await Promise.all(batchPromises);
              setGeneratedImages(results);
+             playSuccess();
         }
 
     } catch (err: any) {
       console.error(err);
+      playError();
       if (err.message && (err.message.includes('403') || err.message.includes('permission') || err.message.includes('Permission denied'))) {
           if (config.model !== ModelType.GEMINI_FLASH_IMAGE) {
              setError("Permission denied. This model requires a paid plan.");
@@ -258,6 +264,7 @@ const App: React.FC = () => {
     if (!sourceImage.seed || sourceImage.type !== 'image') return;
 
     setIsGenerating(true);
+    playPowerUp();
     setGeneratedImages(null);
     setError(null);
 
@@ -294,9 +301,11 @@ const App: React.FC = () => {
 
         const results = await Promise.all(batchPromises);
         setGeneratedImages(results);
+        playSuccess();
     } catch (err: any) {
         console.error(err);
         setError("Failed to generate variations.");
+        playError();
     } finally {
         setIsGenerating(false);
     }
@@ -323,10 +332,12 @@ const App: React.FC = () => {
               : img
           );
       });
+      playSuccess();
       
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to upscale image.");
+      playError();
     } finally {
       setIsUpscaling(false);
     }
@@ -404,10 +415,9 @@ const App: React.FC = () => {
     );
   }
 
-  // Removed bg-slate-50 and bg-[#050510] to allow Background component to be visible
   return (
     <div className={`min-h-screen relative transition-colors duration-500 ${isLight ? 'text-slate-900' : 'text-white'}`}>
-      <Background theme={config.theme} />
+      <Background theme={config.theme} isGenerating={isGenerating} />
       <Header 
         onOpenSettings={() => setIsSettingsOpen(true)} 
         onOpenGallery={() => setIsGalleryOpen(true)}

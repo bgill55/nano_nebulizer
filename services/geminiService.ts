@@ -46,33 +46,41 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
     // Use Gemini 2.5 Flash for reliable text enhancement
     const model = 'gemini-2.5-flash';
 
+    const systemContext = `You are a legendary AI Art Director and Prompt Engineer. 
+    Your goal is to transform simple user ideas into "Hall of Fame" worthy image generation prompts.`;
+    
     const styleInstruction = style && style !== 'None' 
-        ? `The user has selected the art style: "${style}". Ensure the enhanced prompt strictly adheres to this aesthetic.` 
-        : "Choose a suitable artistic style based on the subject matter.";
+        ? `Integrate the "${style}" art style naturally into the description (e.g., "A breathtaking ${style} illustration of...").` 
+        : "Choose the most visually striking aesthetic that fits the subject.";
+
+    const promptText = `
+    ${systemContext}
+
+    TASK:
+    Rewrite the following Input Concept into a highly detailed, vivid, and cohesive image prompt.
+    
+    INPUT CONCEPT: "${input}"
+    TARGET STYLE: "${style}"
+
+    CRITICAL RULES:
+    1. ${styleInstruction}
+    2. VISUALS: Describe lighting (volumetric, cinematic, neon), texture (rough, polished, matte), and camera details (8k, depth of field, wide angle).
+    3. CONTENT: Expand on the subject's pose, expression, and environment.
+    4. OUTPUT FORMAT: A single, flowing paragraph. Do NOT use bullet points. Do NOT use prefixes like "Prompt:" or "Anime style:".
+    5. LENGTH: approximately 50-75 words.
+    
+    Generate the prompt now:
+    `;
 
     try {
         const response = await ai.models.generateContent({
             model: model,
             contents: {
-                parts: [{ 
-                    text: `Act as a professional visual director and prompt engineer. 
-                    Rewrite the user's simple idea into a high-fidelity image generation prompt.
-                    
-                    Input: "${input}"
-                    
-                    Guidelines:
-                    1. ${styleInstruction}
-                    2. Add specific details about lighting (e.g., volumetric, cinematic, bioluminescent).
-                    3. Add camera details if photorealistic (e.g., 85mm lens, f/1.8, 8k).
-                    4. Add texture and composition keywords.
-                    5. Keep it under 75 words.
-                    6. Output ONLY the raw prompt text. Do not add conversational filler.` 
-                }]
+                parts: [{ text: promptText }]
             },
             config: {
-                systemInstruction: "You are an expert AI prompt engineer. Rewrite simple user prompts into detailed, high-quality image generation prompts. Output only the prompt text.",
-                temperature: 0.8, // Slightly higher creativity
-                maxOutputTokens: 200,
+                temperature: 0.8, // High creativity
+                maxOutputTokens: 1000, // Plenty of space
             }
         });
         
@@ -84,12 +92,19 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
              if (clean.startsWith('"') && clean.endsWith('"')) {
                  clean = clean.slice(1, -1);
              }
-             // Remove 'Here is...' prefixes if any (more robust regex)
-             clean = clean.replace(/^(Here is|Sure,|Okay,|Enhanced prompt:).+?:/i, '');
+             // Remove common prefixes that models sometimes add despite instructions
+             clean = clean.replace(/^(Here is the prompt|Prompt|Output|Enhanced|Sure|Okay|The image shows):?\s*/i, '');
+             
+             // Remove style prefixes like "Anime Style: ..." to keep it natural
+             if (style && style !== 'None') {
+                 const stylePrefixRegex = new RegExp(`^${style}\\s*(style|art)?[:.]\\s*`, 'i');
+                 clean = clean.replace(stylePrefixRegex, '');
+             }
+
              return clean.trim();
         }
         
-        // Fallback if .text is empty but candidates exist
+        // Fallback
         if (response.candidates && response.candidates.length > 0 && response.candidates[0].content?.parts?.[0]?.text) {
              return response.candidates[0].content.parts[0].text.trim();
         }
@@ -148,6 +163,134 @@ export const shareMedia = async (url: string, title: string, text: string): Prom
     }
 };
 
+export const generateImage = async (config: AppConfig): Promise<string> => {
+    const ai = getClient();
+    const { prompt, model, aspectRatio, style, negativePrompt, seed, imageSize } = config;
+
+    // Construct the final prompt
+    let finalPrompt = prompt;
+    
+    // For Imagen, we can use the aspect ratio config directly. 
+    // For Gemini Flash/Pro, we might need to append it to the prompt if strict sizing isn't supported via config API yet (though ImageConfig supports it).
+    
+    try {
+        if (model === ModelType.IMAGEN_4) {
+            // IMAGEN 4 LOGIC
+            const response = await ai.models.generateImages({
+                model: model,
+                prompt: finalPrompt,
+                config: {
+                    numberOfImages: 1,
+                    aspectRatio: aspectRatio as any, // Cast to expected type if needed
+                    outputMimeType: 'image/jpeg',
+                    // safetySettings: ...
+                }
+            });
+            
+            if (response.generatedImages && response.generatedImages.length > 0) {
+                 const base64 = response.generatedImages[0].image.imageBytes;
+                 return `data:image/jpeg;base64,${base64}`;
+            }
+            throw new Error("Imagen generation failed: No images returned.");
+
+        } else {
+            // GEMINI (NANO BANANA) LOGIC
+            const isPro = model === ModelType.GEMINI_PRO_IMAGE;
+            
+            // Build content parts
+            const parts: any[] = [{ text: finalPrompt }];
+            
+            // Note: Negative prompt is not strictly supported in generateContent for Gemini yet in the same way as SD, 
+            // but we can append it to the text prompt for better adherence.
+            if (negativePrompt) {
+                parts[0].text += `\n\n(Negative prompt / Avoid: ${negativePrompt})`;
+            }
+
+            const response = await ai.models.generateContent({
+                model: model,
+                contents: {
+                    parts: parts
+                },
+                config: {
+                    imageConfig: {
+                         aspectRatio: aspectRatio,
+                         imageSize: isPro ? imageSize : undefined // Only Pro supports size selection
+                    }
+                }
+            });
+
+            // Parse response for image
+            if (response.candidates && response.candidates.length > 0) {
+                 const content = response.candidates[0].content;
+                 if (content.parts) {
+                     for (const part of content.parts) {
+                         if (part.inlineData) {
+                             return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                         }
+                     }
+                 }
+            }
+            
+            throw new Error("Gemini generation failed: No image data found in response.");
+        }
+    } catch (error) {
+        console.error("Image Generation Error:", error);
+        throw error;
+    }
+};
+
+export const upscaleImage = async (imageBase64: string, aspectRatio: string): Promise<string> => {
+    // This is a mock implementation because true upscaling isn't a direct API call in this SDK yet
+    // However, we can use the "Edit" pattern: Send the image back to Gemini Pro with a prompt to "Refine and upscale"
+    
+    const ai = getClient();
+    const model = ModelType.GEMINI_PRO_IMAGE; // Use the powerful model
+
+    // Strip header if present for sending to API
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+
+    const prompt = "Enhance this image to 4K resolution. Increase detail, sharpen textures, improve lighting, and fix artifacts. Keep the original composition exactly the same.";
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: base64Data
+                        }
+                    }
+                ]
+            },
+            config: {
+                imageConfig: {
+                    aspectRatio: aspectRatio,
+                    imageSize: '4K'
+                }
+            }
+        });
+
+        if (response.candidates && response.candidates.length > 0) {
+            const content = response.candidates[0].content;
+            if (content.parts) {
+                for (const part of content.parts) {
+                    if (part.inlineData) {
+                        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    }
+                }
+            }
+        }
+        throw new Error("Upscaling failed.");
+    } catch (error) {
+        console.error("Upscale Error:", error);
+        throw error;
+    }
+};
+
 export const generateVideo = async (config: AppConfig): Promise<string> => {
     const ai = getClient();
     let { prompt, aspectRatio, inputImage, seed } = config;
@@ -157,280 +300,64 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
 
     // Validate Aspect Ratio for Veo (must be 16:9 or 9:16)
     if (aspectRatio !== '16:9' && aspectRatio !== '9:16') {
-        console.warn(`Invalid aspect ratio '${aspectRatio}' for Veo model. Defaulting to '16:9'.`);
-        aspectRatio = '16:9';
+        aspectRatio = '16:9'; // Fallback
     }
 
     try {
-        let request: any = {
-            model: model,
-            config: {
-                numberOfVideos: 1,
-                resolution: '720p', // Veo Fast supports 720p
-                aspectRatio: aspectRatio,
-            }
-        };
+        let operation;
 
-        // If prompt is present, add it. Veo can work with just image, or just prompt, or both.
-        if (prompt && prompt.trim()) {
-            request.prompt = prompt;
-        }
-
-        // If input image exists, use it (Image-to-Video)
         if (inputImage) {
-            const matches = inputImage.match(/^data:(.+);base64,(.+)$/);
-            if (matches && matches.length === 3) {
-                request.image = {
-                    mimeType: matches[1],
-                    imageBytes: matches[2]
-                };
-            }
-        }
-        
-        console.log("Starting Video Generation...", request);
-        let operation = await ai.models.generateVideos(request);
+            // Image-to-Video
+            const base64Data = inputImage.replace(/^data:image\/\w+;base64,/, "");
+            const mimeType = inputImage.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
 
-        // Polling loop
-        console.log("Polling for video completion...");
+            operation = await ai.models.generateVideos({
+                model: model,
+                prompt: prompt || "Animate this image", // Prompt is optional but recommended
+                image: {
+                    imageBytes: base64Data,
+                    mimeType: mimeType
+                },
+                config: {
+                    numberOfVideos: 1,
+                    resolution: '720p',
+                    aspectRatio: aspectRatio as '16:9' | '9:16',
+                    // seed: seed !== -1 ? seed : undefined, // Veo SDK might not support seed yet directly in this typed helper, omit if causing issues
+                }
+            });
+        } else {
+            // Text-to-Video
+            operation = await ai.models.generateVideos({
+                model: model,
+                prompt: prompt,
+                config: {
+                    numberOfVideos: 1,
+                    resolution: '720p',
+                    aspectRatio: aspectRatio as '16:9' | '9:16',
+                }
+            });
+        }
+
+        // Poll for completion
+        // Note: In a real app, you might want to handle this asynchronously via a job queue or UI notification
+        // so the user isn't stuck waiting with an open connection, but for this demo we await.
         while (!operation.done) {
             await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5s
             operation = await ai.operations.getVideosOperation({ operation: operation });
-            console.log("Video Status:", operation.metadata?.state || 'Processing');
         }
 
-        if (operation.error) {
-            throw new Error(`Video generation failed: ${operation.error.message}`);
+        if (operation.response?.generatedVideos?.[0]?.video?.uri) {
+            const videoUri = operation.response.generatedVideos[0].video.uri;
+            // Fetch the actual video bytes using the API key
+            const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+            const videoBlob = await videoResponse.blob();
+            return URL.createObjectURL(videoBlob);
         }
 
-        const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!videoUri) {
-            throw new Error("No video URI returned.");
-        }
+        throw new Error("Video generation completed but no URI returned.");
 
-        // Fetch the video content using the API Key to get a playable Blob URL
-        const apiKey = process.env.API_KEY;
-        const videoResponse = await fetch(`${videoUri}&key=${apiKey}`);
-        
-        if (!videoResponse.ok) {
-            throw new Error("Failed to download generated video.");
-        }
-
-        const videoBlob = await videoResponse.blob();
-        return URL.createObjectURL(videoBlob);
-
-    } catch (error: any) {
-        console.error("Veo API Error:", error);
-        throw error;
-    }
-};
-
-export const generateImage = async (config: AppConfig): Promise<string> => {
-    const ai = getClient();
-    const { model, prompt, negativePrompt, aspectRatio, imageSize, enableNSFW, inputImage, seed } = config;
-
-    let processedPrompt = prompt;
-    // Skip JSON flattening for Gemini 2.5 as it handles structured prompts well
-    if (model !== ModelType.GEMINI_FLASH_IMAGE) {
-         processedPrompt = parseJsonPrompt(prompt);
-    }
-
-    let finalPrompt = '';
-    
-    // Handle cases where prompt might be empty but image is provided
-    if (processedPrompt && processedPrompt.trim()) {
-        finalPrompt = `Create an image of ${processedPrompt}`;
-    } else if (inputImage) {
-        finalPrompt = "Generate a high quality creative variation of this image.";
-    } else {
-        throw new Error("Please describe the image you want to generate.");
-    }
-
-    if (negativePrompt) {
-        finalPrompt += `\n\nExclude the following elements: ${negativePrompt}`;
-    }
-
-    try {
-        if (model === ModelType.IMAGEN_4) {
-            // Imagen generation (v4)
-            if (inputImage) {
-               console.warn("Input image provided but Imagen models currently use text-to-image generation in this app configuration.");
-            }
-
-            const response = await ai.models.generateImages({
-                model: model,
-                prompt: finalPrompt,
-                config: {
-                    numberOfImages: 1,
-                    outputMimeType: 'image/jpeg',
-                    aspectRatio: aspectRatio,
-                    // Safety settings removed to use system defaults
-                },
-            });
-            
-            if (response.generatedImages && response.generatedImages.length > 0) {
-                 const base64 = response.generatedImages[0].image.imageBytes;
-                 return `data:image/jpeg;base64,${base64}`;
-            }
-            throw new Error(`No image generated from ${model}.`);
-
-        } else {
-            // Gemini Flash Image, Pro Image, or Flash Exp
-            
-            const parts: any[] = [];
-            
-            if (inputImage) {
-                const matches = inputImage.match(/^data:(.+);base64,(.+)$/);
-                if (matches && matches.length === 3) {
-                    parts.push({
-                        inlineData: {
-                            mimeType: matches[1],
-                            data: matches[2]
-                        }
-                    });
-                }
-            }
-
-            if (finalPrompt) {
-                parts.push({ text: finalPrompt });
-            }
-
-            if (parts.length === 0) {
-                 throw new Error("Please provide a prompt or an image.");
-            }
-
-            const generateContentParams: any = {
-                model: model,
-                contents: {
-                    parts: parts,
-                },
-                config: {
-                    systemInstruction: "You are an image generation tool. Do not generate conversational text. Do not say 'Here is an image'. Just generate the image.",
-                    imageConfig: {
-                         aspectRatio: aspectRatio,
-                    },
-                    seed: seed !== -1 ? seed : undefined,
-                    // Safety settings removed to use system defaults
-                }
-            };
-
-            if (model === ModelType.GEMINI_PRO_IMAGE && imageSize) {
-                generateContentParams.config.imageConfig.imageSize = imageSize;
-            }
-
-            const response = await ai.models.generateContent(generateContentParams);
-
-            if (!response.candidates || response.candidates.length === 0) {
-                if (response.promptFeedback && response.promptFeedback.blockReason) {
-                    throw new Error(`Generation blocked by safety filters (${response.promptFeedback.blockReason}). Try adjusting your prompt.`);
-                }
-                throw new Error("No candidates returned from model. The prompt might be too vague, or triggered a safety filter.");
-            }
-
-            const candidate = response.candidates[0];
-
-            if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-                let msg = `Generation stopped. Reason: ${candidate.finishReason}`;
-                if (candidate.finishReason === 'IMAGE_OTHER') {
-                    msg = "Generation failed due to content policies (IMAGE_OTHER). The model blocked this specific request. Try changing your prompt or style, or avoid sensitive/copyrighted subjects.";
-                }
-                throw new Error(msg);
-            }
-
-            const resParts = candidate.content?.parts;
-            if (resParts) {
-                let refusalText = '';
-                for (const part of resParts) {
-                    if (part.inlineData && part.inlineData.data) {
-                        const mimeType = part.inlineData.mimeType || 'image/png';
-                        return `data:${mimeType};base64,${part.inlineData.data}`;
-                    }
-                    if (part.text) {
-                        refusalText += part.text;
-                    }
-                }
-
-                if (refusalText) {
-                    const cleanRefusal = refusalText.length > 200 ? refusalText.substring(0, 200) + '...' : refusalText;
-                    throw new Error(`Model responded with text instead of image: "${cleanRefusal}"`);
-                }
-            }
-            
-            throw new Error("No image data found in response.");
-        }
-    } catch (error: any) {
-        console.error("Gemini API Error:", error);
-        throw error;
-    }
-};
-
-export const upscaleImage = async (imageDataUrl: string, aspectRatio: string): Promise<string> => {
-    const ai = getClient();
-    const model = ModelType.GEMINI_PRO_IMAGE;
-
-    const matches = imageDataUrl.match(/^data:(.+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-        throw new Error("Invalid image data provided for upscaling.");
-    }
-    const mimeType = matches[1];
-    const data = matches[2];
-
-    try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: {
-                parts: [
-                    { inlineData: { mimeType, data } },
-                    { text: "High resolution, 4K detailed version of this image." }
-                ]
-            },
-            config: {
-                systemInstruction: "You are an image upscaler. Output a high resolution image only.",
-                imageConfig: {
-                    imageSize: '4K',
-                    aspectRatio: aspectRatio
-                },
-                // Safety settings removed to use system defaults
-            }
-        });
-
-        if (!response.candidates || response.candidates.length === 0) {
-             if (response.promptFeedback && response.promptFeedback.blockReason) {
-                throw new Error(`Upscaling blocked by safety filters (${response.promptFeedback.blockReason}).`);
-            }
-            throw new Error("Upscaling failed: No candidates returned from model.");
-        }
-
-        const candidate = response.candidates[0];
-
-        if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-             let msg = `Upscaling stopped. Reason: ${candidate.finishReason}`;
-             if (candidate.finishReason === 'IMAGE_OTHER') {
-                 msg = "Upscaling failed due to content policies (IMAGE_OTHER). The model refused to process this specific image.";
-             }
-             throw new Error(msg);
-        }
-
-        const parts = candidate.content?.parts;
-        if (parts) {
-            let refusalText = '';
-            for (const part of parts) {
-                if (part.inlineData && part.inlineData.data) {
-                    const resMimeType = part.inlineData.mimeType || 'image/png';
-                    return `data:${resMimeType};base64,${part.inlineData.data}`;
-                }
-                if (part.text) {
-                    refusalText += part.text;
-                }
-            }
-            if (refusalText) {
-                const cleanRefusal = refusalText.length > 200 ? refusalText.substring(0, 200) + '...' : refusalText;
-                throw new Error(`Model responded with text instead of image: "${cleanRefusal}"`);
-            }
-        }
-        
-        throw new Error("Upscaling failed: No image data returned.");
     } catch (error) {
-        console.error("Upscale API Error:", error);
+        console.error("Video Generation Error:", error);
         throw error;
     }
 };

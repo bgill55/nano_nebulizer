@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2 } from 'lucide-react';
 import { GeneratedImage } from '../types';
+import HolographicCard from './HolographicCard';
 
 interface GeneratedImageModalProps {
   images: GeneratedImage[];
@@ -180,13 +181,15 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                         className="max-h-full max-w-full rounded-lg shadow-2xl border border-white/10"
                     />
                 ) : (
-                    <img 
-                        src={currentImage.url} 
-                        alt={prompt}
-                        className={`max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.5)] border border-white/5 relative z-10 transition-all duration-500 
-                            ${isUpscaling ? 'blur-sm scale-[0.98]' : 'blur-0 scale-100'}
-                        `}
-                    />
+                    <HolographicCard>
+                        <img 
+                            src={currentImage.url} 
+                            alt={prompt}
+                            className={`max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.5)] border border-white/5 relative z-10 transition-all duration-500 
+                                ${isUpscaling ? 'blur-sm scale-[0.98]' : 'blur-0 scale-100'}
+                            `}
+                        />
+                    </HolographicCard>
                 )}
 
                 {isUpscaling && (

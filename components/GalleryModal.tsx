@@ -2,6 +2,7 @@
 import React from 'react';
 import { X, Trash2, Copy, Zap, Calendar, Download } from 'lucide-react';
 import { GeneratedImage } from '../types';
+import HolographicCard from './HolographicCard';
 
 interface GalleryModalProps {
   isOpen: boolean;
@@ -70,9 +71,12 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {images.map((img) => (
-                <div 
+                <HolographicCard 
                   key={img.id} 
-                  className="group relative bg-[#131629] rounded-xl overflow-hidden border border-white/5 hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] transition-all duration-300"
+                  className="rounded-xl overflow-hidden"
+                >
+                <div 
+                  className="group relative bg-[#131629] h-full flex flex-col border border-white/5"
                 >
                   {/* Image Aspect Wrapper */}
                   <div className="aspect-square relative overflow-hidden bg-black/20">
@@ -82,7 +86,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                          <img 
                             src={img.url} 
                             alt={img.prompt}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            className="w-full h-full object-cover"
                          />
                     )}
                     
@@ -126,7 +130,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                   </div>
 
                   {/* Info Footer */}
-                  <div className="p-4">
+                  <div className="p-4 bg-[#131629]">
                     <div className="flex items-start justify-between gap-2 mb-2">
                          <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/5">
                             {img.type === 'video' ? 'Video' : (img.style || 'No Style')}
@@ -140,6 +144,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
                     </p>
                   </div>
                 </div>
+                </HolographicCard>
               ))}
             </div>
           )}

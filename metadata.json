@@ -1,5 +1,7 @@
 {
   "name": "Nano Nebula AI Art Generator",
   "description": "A futuristic, high-performance AI art generation interface featuring a constellation background, advanced controls, and Gemini-powered image synthesis.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppConfig, ModelType, AppTheme, GenerationMode } from '../types';
 import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon } from 'lucide-react';
+import { playClick } from '../services/audioService';
 
 interface ControlPanelProps {
   config: AppConfig;
@@ -240,12 +241,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
   const isLight = config.theme === 'Starlight Light';
 
   const applyPreset = (presetConfig: Partial<AppConfig>) => {
+    playClick(1200);
     Object.entries(presetConfig).forEach(([key, value]) => {
       updateConfig(key as keyof AppConfig, value);
     });
   };
 
   const handleModeChange = (mode: GenerationMode) => {
+      playClick(900);
       updateConfig('mode', mode);
       if (mode === 'video') {
           updateConfig('model', ModelType.VEO_FAST);
@@ -300,7 +303,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
       `}>
         {config.mode === 'image' && (
             <button
-                onClick={() => setActiveTab('styles')}
+                onClick={() => { playClick(800); setActiveTab('styles'); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-300 
                     ${activeTab === 'styles' 
                         ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.1)]') 
@@ -312,7 +315,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
             </button>
         )}
         <button
-            onClick={() => setActiveTab('model')}
+            onClick={() => { playClick(800); setActiveTab('model'); }}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-300 
                 ${activeTab === 'model' 
                     ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(168,85,247,0.1)]') 
@@ -323,7 +326,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
             <span>Model & Format</span>
         </button>
         <button
-            onClick={() => setActiveTab('advanced')}
+            onClick={() => { playClick(800); setActiveTab('advanced'); }}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-300 
                 ${activeTab === 'advanced' 
                     ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(236,72,153,0.1)]') 
@@ -513,7 +516,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                                 {availableRatios.map((ratio) => (
                                     <button
                                         key={ratio}
-                                        onClick={() => updateConfig('aspectRatio', ratio)}
+                                        onClick={() => { playClick(800); updateConfig('aspectRatio', ratio); }}
                                         className={`py-3 px-2 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                                             config.aspectRatio === ratio 
                                             ? 'bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border-cyan-500/50 text-cyan-600 dark:text-white shadow-[0_0_10px_rgba(6,182,212,0.1)]' 
@@ -626,7 +629,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                                     `}
                                 />
                                 <button 
-                                    onClick={() => updateConfig('seed', Math.floor(Math.random() * 999999999))}
+                                    onClick={() => { playClick(600); updateConfig('seed', Math.floor(Math.random() * 999999999)); }}
                                     className={`px-3 py-2 rounded-xl border text-xs font-medium transition-colors
                                         ${isLight 
                                             ? 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-600' 

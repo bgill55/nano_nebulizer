@@ -1,8 +1,9 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
+import { playClick } from '../services/audioService';
 
 interface PromptInputProps {
   label?: string;
@@ -99,6 +100,55 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const [historyItems, setHistoryItems] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
 
+  // Voice Input State
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = false; // Stop after one sentence for better UX
+            recognitionRef.current.interimResults = false;
+            recognitionRef.current.lang = 'en-US';
+
+            recognitionRef.current.onresult = (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                // Append to existing text with a space if needed
+                const newValue = value ? `${value} ${transcript}` : transcript;
+                onChange(newValue);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onerror = (event: any) => {
+                console.error("Speech recognition error", event.error);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onend = () => {
+                setIsListening(false);
+            };
+        }
+    }
+  }, [value, onChange]);
+
+  const toggleListening = () => {
+    playClick(1000);
+    if (isListening) {
+        recognitionRef.current?.stop();
+        setIsListening(false);
+    } else {
+        try {
+            recognitionRef.current?.start();
+            setIsListening(true);
+        } catch (e) {
+            console.error("Failed to start speech recognition", e);
+        }
+    }
+  };
+
   // Handle Progress Simulation
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -163,6 +213,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
   }, [showHistory]);
 
   const toggleHistory = () => {
+    playClick(600);
     if (!showHistory) {
       setHistoryItems(getPromptHistory());
     }
@@ -170,18 +221,21 @@ const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const handleSelectHistory = (prompt: string) => {
+    playClick(800);
     onChange(prompt);
     setShowHistory(false);
   };
 
   const handleClearHistory = (e: React.MouseEvent) => {
     e.stopPropagation();
+    playClick(500);
     clearPromptHistory();
     setHistoryItems([]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0] && onImageUpload) {
+      playClick(1200);
       onImageUpload(e.target.files[0]);
     }
     // Reset value so same file can be selected again
@@ -191,6 +245,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const handleSurpriseMe = () => {
+      playClick(1500);
       const randomPrompt = SURPRISE_PROMPTS[Math.floor(Math.random() * SURPRISE_PROMPTS.length)];
       onChange(randomPrompt);
   };
@@ -221,7 +276,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
               ${isLight ? 'text-slate-800 placeholder-slate-400' : 'text-gray-100 placeholder-gray-500'}
               ${inputImage ? 'pb-24' : ''} 
             `}
-            placeholder={placeholder}
+            placeholder={isListening ? "Listening..." : placeholder}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={isMain ? handleKeyDown : undefined}
@@ -233,6 +288,17 @@ const PromptInput: React.FC<PromptInputProps> = ({
              <div className={`absolute bottom-3 right-4 text-[10px] pointer-events-none opacity-50 ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
                 Ctrl + Enter to Generate
              </div>
+          )}
+
+          {/* Voice Listening Indicator */}
+          {isListening && (
+              <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-none">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                  <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-red-500' : 'text-red-400'}`}>Rec</span>
+              </div>
           )}
 
           {/* Image Preview Area */}
@@ -247,7 +313,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
                   className="h-16 w-auto object-cover opacity-80 group-hover/image:opacity-100 transition-opacity" 
                 />
                 <button 
-                  onClick={onClearImage}
+                  onClick={() => {
+                      playClick(400);
+                      onClearImage && onClearImage();
+                  }}
                   className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/50 text-white hover:bg-red-500 transition-colors"
                 >
                   <X size={12} />
@@ -275,7 +344,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
               <div className="flex gap-2">
                  {/* Upload Button */}
                  <button 
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                        playClick(600);
+                        fileInputRef.current?.click();
+                    }}
                     className={`flex-1 min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border
                         ${isLight 
                             ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
@@ -286,6 +358,21 @@ const PromptInput: React.FC<PromptInputProps> = ({
                  >
                     {inputImage ? <ImageIcon size={14} /> : <Paperclip size={14} />} 
                  </button>
+
+                 {/* Voice Input Button */}
+                 {recognitionRef.current && (
+                    <button 
+                        onClick={toggleListening}
+                        className={`flex-1 min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border
+                            ${isListening 
+                                ? 'bg-red-500/20 text-red-400 border-red-500/50 animate-pulse' 
+                                : (isLight ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10')}
+                        `}
+                        title="Voice Input"
+                    >
+                        {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                    </button>
+                 )}
                  
                  {/* Surprise Me Button */}
                  <button 
@@ -305,7 +392,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
           {isMain && onEnhance && (
              <button 
-              onClick={onEnhance}
+              onClick={() => {
+                  playClick(1000);
+                  onEnhance();
+              }}
               disabled={isEnhancing}
               className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border relative overflow-hidden group/enhance
                  ${isLight 
@@ -386,7 +476,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
           {isMain && onOpenTemplates && (
             <button 
-              onClick={onOpenTemplates}
+              onClick={() => {
+                  playClick(700);
+                  onOpenTemplates();
+              }}
               className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border
                  ${isLight 
                     ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
@@ -444,7 +537,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
           )}
 
           <button 
-            onClick={onClear}
+            onClick={() => {
+                playClick(400);
+                onClear();
+            }}
             className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider opacity-90 hover:opacity-100 transition-all shadow-lg flex items-center justify-center
               ${isMain 
                 ? 'bg-gradient-to-br from-cyan-500 to-cyan-700 text-white shadow-cyan-500/20' 
