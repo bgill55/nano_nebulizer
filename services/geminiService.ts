@@ -40,30 +40,39 @@ const parseJsonPrompt = (input: string): string => {
     }
 };
 
-export const enhancePrompt = async (input: string): Promise<string> => {
+export const enhancePrompt = async (input: string, style: string = 'None'): Promise<string> => {
     const ai = getClient();
     
     // Use Gemini 2.5 Flash for reliable text enhancement
     const model = 'gemini-2.5-flash';
+
+    const styleInstruction = style && style !== 'None' 
+        ? `The user has selected the art style: "${style}". Ensure the enhanced prompt strictly adheres to this aesthetic.` 
+        : "Choose a suitable artistic style based on the subject matter.";
 
     try {
         const response = await ai.models.generateContent({
             model: model,
             contents: {
                 parts: [{ 
-                    text: `Rewrite this image generation prompt to be more descriptive, artistic, and detailed. 
-                    Include keywords for lighting, style, composition, and texture. 
-                    Keep it under 75 words. 
-                    Output ONLY the raw prompt text.
+                    text: `Act as a professional visual director and prompt engineer. 
+                    Rewrite the user's simple idea into a high-fidelity image generation prompt.
                     
-                    User Prompt: "${input}"` 
+                    Input: "${input}"
+                    
+                    Guidelines:
+                    1. ${styleInstruction}
+                    2. Add specific details about lighting (e.g., volumetric, cinematic, bioluminescent).
+                    3. Add camera details if photorealistic (e.g., 85mm lens, f/1.8, 8k).
+                    4. Add texture and composition keywords.
+                    5. Keep it under 75 words.
+                    6. Output ONLY the raw prompt text. Do not add conversational filler.` 
                 }]
             },
             config: {
                 systemInstruction: "You are an expert AI prompt engineer. Rewrite simple user prompts into detailed, high-quality image generation prompts. Output only the prompt text.",
-                temperature: 0.7,
+                temperature: 0.8, // Slightly higher creativity
                 maxOutputTokens: 200,
-                // safetySettings removed to use defaults
             }
         });
         
@@ -75,8 +84,8 @@ export const enhancePrompt = async (input: string): Promise<string> => {
              if (clean.startsWith('"') && clean.endsWith('"')) {
                  clean = clean.slice(1, -1);
              }
-             // Remove 'Here is...' prefixes if any
-             clean = clean.replace(/^Here is (the|a) rewritten prompt:?/i, '');
+             // Remove 'Here is...' prefixes if any (more robust regex)
+             clean = clean.replace(/^(Here is|Sure,|Okay,|Enhanced prompt:).+?:/i, '');
              return clean.trim();
         }
         

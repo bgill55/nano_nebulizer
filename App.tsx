@@ -153,7 +153,8 @@ const App: React.FC = () => {
     setIsEnhancing(true);
     setError(null);
     try {
-        const enhanced = await enhancePrompt(config.prompt);
+        // Pass the current style to the enhancer so it knows context
+        const enhanced = await enhancePrompt(config.prompt, config.style);
         updateConfig('prompt', enhanced);
     } catch (err: any) {
         console.error(err);
@@ -403,8 +404,9 @@ const App: React.FC = () => {
     );
   }
 
+  // Removed bg-slate-50 and bg-[#050510] to allow Background component to be visible
   return (
-    <div className={`min-h-screen relative transition-colors duration-500 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#050510] text-white'}`}>
+    <div className={`min-h-screen relative transition-colors duration-500 ${isLight ? 'text-slate-900' : 'text-white'}`}>
       <Background theme={config.theme} />
       <Header 
         onOpenSettings={() => setIsSettingsOpen(true)} 

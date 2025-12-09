@@ -20,7 +20,15 @@ const Background: React.FC<BackgroundProps> = ({ theme }) => {
     let height = canvas.height = window.innerHeight;
 
     const particles: Particle[] = [];
-    const particleCount = Math.min(100, (width * height) / 15000); // Responsive count
+    const particleCount = Math.min(120, (width * height) / 12000); 
+
+    let mouseX = -1000;
+    let mouseY = -1000;
+
+    window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
 
     class Particle {
       x: number;
@@ -28,27 +36,51 @@ const Background: React.FC<BackgroundProps> = ({ theme }) => {
       vx: number;
       vy: number;
       size: number;
+      color: string;
 
       constructor() {
         this.x = Math.random() * width;
         this.y = Math.random() * height;
-        this.vx = (Math.random() - 0.5) * 0.5;
-        this.vy = (Math.random() - 0.5) * 0.5;
-        this.size = Math.random() * 2 + 1;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        this.size = Math.random() * 2 + 1.5;
+        
+        // Randomly assign Cyan or Purple tints for "Nebula" feel
+        const random = Math.random();
+        if (isLight) {
+             this.color = random > 0.5 ? 'rgba(6, 182, 212, 0.4)' : 'rgba(168, 85, 247, 0.4)'; // Cyan/Purple for light
+        } else {
+             this.color = random > 0.5 ? 'rgba(6, 182, 212, 0.6)' : 'rgba(192, 132, 252, 0.6)'; // Cyan/Purple for dark
+        }
       }
 
       update() {
         this.x += this.vx;
         this.y += this.vy;
 
+        // Bounce off edges
         if (this.x < 0 || this.x > width) this.vx *= -1;
         if (this.y < 0 || this.y > height) this.vy *= -1;
+
+        // Mouse interaction: Gentle repulsion
+        const dx = mouseX - this.x;
+        const dy = mouseY - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 150) {
+            const forceDirectionX = dx / distance;
+            const forceDirectionY = dy / distance;
+            const force = (150 - distance) / 150;
+            const directionX = forceDirectionX * force * 0.5;
+            const directionY = forceDirectionY * force * 0.5;
+            this.x -= directionX;
+            this.y -= directionY;
+        }
       }
 
       draw() {
         if (!ctx) return;
-        // Dark theme: Grayish blue particles. Light theme: Slate-500 particles
-        ctx.fillStyle = isLight ? 'rgba(100, 116, 139, 0.4)' : 'rgba(100, 116, 139, 0.5)';
+        ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
@@ -76,13 +108,21 @@ const Background: React.FC<BackgroundProps> = ({ theme }) => {
           const dy = p1.y - p2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (dist < 150) {
+          if (dist < 120) {
             ctx.beginPath();
-            // Dark theme: Light lines. Light theme: Darker lines.
-            const strokeColor = isLight 
-                ? `rgba(71, 85, 105, ${0.1 * (1 - dist / 150)})` 
-                : `rgba(148, 163, 184, ${0.15 * (1 - dist / 150)})`;
-            ctx.strokeStyle = strokeColor;
+            const opacity = 1 - dist / 120;
+            // Gradient lines
+            const gradient = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+            
+            if (isLight) {
+                 gradient.addColorStop(0, `rgba(6, 182, 212, ${opacity * 0.2})`);
+                 gradient.addColorStop(1, `rgba(168, 85, 247, ${opacity * 0.2})`);
+            } else {
+                 gradient.addColorStop(0, `rgba(6, 182, 212, ${opacity * 0.3})`);
+                 gradient.addColorStop(1, `rgba(168, 85, 247, ${opacity * 0.3})`);
+            }
+
+            ctx.strokeStyle = gradient;
             ctx.lineWidth = 1;
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(p2.x, p2.y);
