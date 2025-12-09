@@ -43,8 +43,8 @@ const parseJsonPrompt = (input: string): string => {
 export const enhancePrompt = async (input: string): Promise<string> => {
     const ai = getClient();
     
-    // Use Gemini 2.0 Flash Exp for broad availability/free tier support for text tasks
-    const model = 'gemini-2.0-flash-exp';
+    // Use Gemini 2.5 Flash for reliable text enhancement
+    const model = 'gemini-2.5-flash';
 
     try {
         const response = await ai.models.generateContent({

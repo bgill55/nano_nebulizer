@@ -164,7 +164,7 @@ const App: React.FC = () => {
   };
 
   const switchToFreeTier = () => {
-      updateConfig('model', ModelType.GEMINI_2_0_FLASH_EXP);
+      updateConfig('model', ModelType.GEMINI_FLASH_IMAGE);
       setError(null);
       setShowFreeTierSuggestion(false);
   };
@@ -239,7 +239,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       if (err.message && (err.message.includes('403') || err.message.includes('permission') || err.message.includes('Permission denied'))) {
-          if (config.model !== ModelType.GEMINI_2_0_FLASH_EXP) {
+          if (config.model !== ModelType.GEMINI_FLASH_IMAGE) {
              setError("Permission denied. This model requires a paid plan.");
              setShowFreeTierSuggestion(true);
           } else {
@@ -332,11 +332,8 @@ const App: React.FC = () => {
   };
 
   const handleEdit = (image: GeneratedImage) => {
-      // Load image as input reference
       updateConfig('inputImage', image.url);
       setGeneratedImages(null);
-      // Optional: Clear prompt or set instruction mode
-      // updateConfig('prompt', '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

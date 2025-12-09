@@ -432,7 +432,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                                         <>
                                             <option value={ModelType.GEMINI_PRO_IMAGE}>Nano Banana 2 (Gemini 3 Pro)</option>
                                             <option value={ModelType.GEMINI_FLASH_IMAGE}>Gemini 2.5 Flash Image (Fast)</option>
-                                            <option value={ModelType.GEMINI_2_0_FLASH_EXP}>Gemini 2.0 Flash (Free Tier / Exp)</option>
                                             <option value={ModelType.IMAGEN_4}>Imagen 4 (High Quality)</option>
                                         </>
                                     ) : (

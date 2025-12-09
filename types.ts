@@ -3,7 +3,6 @@ export enum ModelType {
     GEMINI_FLASH_IMAGE = 'gemini-2.5-flash-image',
     IMAGEN_4 = 'imagen-4.0-generate-001',
     GEMINI_PRO_IMAGE = 'gemini-3-pro-image-preview', 
-    GEMINI_2_0_FLASH_EXP = 'gemini-2.0-flash-exp',
     VEO_FAST = 'veo-3.1-fast-generate-preview',
 }
 
