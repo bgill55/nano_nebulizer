@@ -116,6 +116,46 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
     }
 };
 
+export const generateBackstory = async (imageBase64: string, prompt: string): Promise<string> => {
+    const ai = getClient();
+    const model = 'gemini-2.5-flash'; // Flash is great for vision tasks
+
+    // Strip header if present
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+
+    const instructions = `
+    Analyze this image. 
+    Write a short, immersive, sci-fi or fantasy "Lore Entry" (approx 50 words) describing the subject as if it were a real entity or location in a fictional universe.
+    
+    Style: Mysterious, cinematic, and "data-log" style.
+    Start with a designation or location name (e.g. "Subject: X-99" or "Location: Sector 4").
+    Do not mention that it is an AI image. Treat it as real.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                parts: [
+                    { text: instructions },
+                    {
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: base64Data
+                        }
+                    }
+                ]
+            }
+        });
+
+        return response.text || "Data corrupted. Unable to retrieve archives.";
+    } catch (error) {
+        console.error("Backstory Generation Error:", error);
+        return "Connection to Neural Archive failed.";
+    }
+};
+
 export const logFeedback = (feedbackType: 'up' | 'down', prompt: string, model: string) => {
     // This is where you would hook into a real logging service (Google Analytics, Firebase, or custom backend)
     console.group("User Feedback");
