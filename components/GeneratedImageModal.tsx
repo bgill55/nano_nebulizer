@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal } from 'lucide-react';
+import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import HolographicCard from './HolographicCard';
 import { generateBackstory } from '../services/geminiService';
@@ -37,6 +37,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   const [backstories, setBackstories] = useState<Record<string, string>>({});
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [revealStory, setRevealStory] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Glitch Reveal State
   const [isRevealed, setIsRevealed] = useState(false);
@@ -49,6 +50,10 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   }, [selectedIndex]);
 
   useEffect(() => {
+    // Stop speech when closing or changing images
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+
     const handleKeyDown = (e: KeyboardEvent) => {
         if (isUpscaling) return;
         
@@ -62,7 +67,10 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.speechSynthesis.cancel();
+    };
   }, [images, isUpscaling, onClose]);
 
   if (!images || images.length === 0) return null;
@@ -125,6 +133,31 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
           console.error(e);
       } finally {
           setIsGeneratingStory(false);
+      }
+  };
+
+  const toggleSpeech = () => {
+      playClick();
+      if (isSpeaking) {
+          window.speechSynthesis.cancel();
+          setIsSpeaking(false);
+      } else {
+          const text = backstories[currentImage.id];
+          if (!text) return;
+
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.pitch = 0.8; // Lower pitch for sci-fi feel
+          utterance.rate = 0.9;  // Slightly slower
+          
+          // Try to find a good voice
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Microsoft David'));
+          if (preferredVoice) utterance.voice = preferredVoice;
+
+          utterance.onend = () => setIsSpeaking(false);
+          
+          window.speechSynthesis.speak(utterance);
+          setIsSpeaking(true);
       }
   };
 
@@ -259,7 +292,11 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                         <div className="bg-[#0b0e1e]/95 border border-cyan-500/30 rounded-xl p-5 shadow-2xl backdrop-blur-xl relative overflow-hidden group/lore">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50" />
                             <button 
-                                onClick={() => setRevealStory(false)}
+                                onClick={() => {
+                                    setRevealStory(false);
+                                    window.speechSynthesis.cancel();
+                                    setIsSpeaking(false);
+                                }}
                                 className="absolute top-2 right-2 p-1 text-gray-500 hover:text-white transition-colors"
                             >
                                 <X size={14} />
@@ -269,11 +306,24 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                                 <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 mt-1 border border-cyan-500/20">
                                     <BrainCircuit size={18} />
                                 </div>
-                                <div className="flex-1">
-                                    <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-500 mb-2 flex items-center gap-2">
-                                        Neural Link Analysis {isGeneratingStory && <span className="animate-pulse">_Processing</span>}
-                                    </h4>
-                                    <div className="text-sm text-gray-300 font-mono leading-relaxed min-h-[60px] max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-500 flex items-center gap-2">
+                                            Neural Link Analysis {isGeneratingStory && <span className="animate-pulse">_Processing</span>}
+                                        </h4>
+                                        {!isGeneratingStory && (
+                                            <button 
+                                                onClick={toggleSpeech}
+                                                className={`p-1 rounded hover:bg-cyan-500/20 transition-colors ${isSpeaking ? 'text-cyan-400 animate-pulse' : 'text-gray-500 hover:text-cyan-400'}`}
+                                                title={isSpeaking ? "Stop Reading" : "Read Aloud"}
+                                            >
+                                                {isSpeaking ? <Square size={12} fill="currentColor" /> : <Volume2 size={12} />}
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Scrollable Text Area with Dynamic Height */}
+                                    <div className="text-sm text-gray-300 font-mono leading-relaxed min-h-[60px] max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
                                         {isGeneratingStory ? (
                                             <span className="flex items-center gap-2 text-cyan-400/70">
                                                 <Loader2 size={14} className="animate-spin" /> Decoding visual data stream...
