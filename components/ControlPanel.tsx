@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppConfig, ModelType, AppTheme, GenerationMode } from '../types';
-import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon } from 'lucide-react';
 import { playClick } from '../services/audioService';
 
 interface ControlPanelProps {
@@ -80,6 +80,79 @@ const PRESETS = [
       quality: 90,
       steps: 50,
       guidanceScale: 8
+    }
+  },
+  // --- NEW STYLES ---
+  {
+    id: 'pixel',
+    label: 'Pixel Art',
+    icon: Gamepad2,
+    gradient: 'from-purple-600 to-indigo-600',
+    config: {
+      style: 'Pixel Art',
+      quality: 90,
+      steps: 40,
+      guidanceScale: 8
+    }
+  },
+  {
+    id: 'fantasy',
+    label: 'Dark Fantasy',
+    icon: Ghost,
+    gradient: 'from-slate-700 to-black',
+    config: {
+      style: 'Dark Fantasy',
+      quality: 100,
+      steps: 60,
+      guidanceScale: 9
+    }
+  },
+  {
+    id: 'watercolor',
+    label: 'Watercolor',
+    icon: Droplets,
+    gradient: 'from-cyan-400 to-blue-400',
+    config: {
+      style: 'Watercolor',
+      quality: 90,
+      steps: 45,
+      guidanceScale: 7
+    }
+  },
+  {
+    id: 'vaporwave',
+    label: 'Vaporwave',
+    icon: Sunset,
+    gradient: 'from-pink-400 to-cyan-400',
+    config: {
+      style: 'Vaporwave',
+      quality: 95,
+      steps: 50,
+      guidanceScale: 10
+    }
+  },
+  {
+    id: 'origami',
+    label: 'Origami',
+    icon: Send, // Paper plane
+    gradient: 'from-orange-400 to-yellow-500',
+    config: {
+      style: 'Origami Paper Art',
+      quality: 90,
+      steps: 40,
+      guidanceScale: 12
+    }
+  },
+  {
+    id: 'isometric',
+    label: 'Isometric',
+    icon: Hexagon,
+    gradient: 'from-blue-500 to-cyan-500',
+    config: {
+      style: 'Isometric 3D',
+      quality: 95,
+      steps: 50,
+      guidanceScale: 8.5
     }
   }
 ];
@@ -252,8 +325,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
       updateConfig('mode', mode);
       if (mode === 'video') {
           updateConfig('model', ModelType.VEO_FAST);
-          updateConfig('style', 'None'); // Veo doesn't use the same style presets
-          // Veo only supports 16:9 or 9:16. Default to landscape if current is invalid.
+          updateConfig('style', 'None'); 
           if (config.aspectRatio !== '16:9' && config.aspectRatio !== '9:16') {
               updateConfig('aspectRatio', '16:9');
           }
@@ -262,7 +334,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
       }
   };
 
-  // Filter aspect ratios based on mode
   const availableRatios = config.mode === 'video' 
     ? ['16:9', '9:16'] 
     : ['1:1', '16:9', '9:16', '4:3', '3:4'];
@@ -352,7 +423,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                     <label className={`text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 ${isLight ? 'text-slate-500' : 'text-pink-400'}`}>
                         <Sparkles size={14} /> Quick Style Presets
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                    {/* Adjusted Grid to handle 12 items smoothly */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                         {PRESETS.map((preset) => {
                             const Icon = preset.icon;
                             const isActive = config.style === preset.config.style;
@@ -402,6 +474,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                                 <option value="Oil Painting">Oil Painting</option>
                                 <option value="Cinematic">Cinematic</option>
                                 <option value="3D Render">3D Render</option>
+                                <option value="Pixel Art">Pixel Art</option>
+                                <option value="Dark Fantasy">Dark Fantasy</option>
+                                <option value="Watercolor">Watercolor</option>
+                                <option value="Vaporwave">Vaporwave</option>
+                                <option value="Origami Paper Art">Origami</option>
+                                <option value="Isometric 3D">Isometric</option>
                                 <option value="None">No Style</option>
                             </select>
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -433,7 +511,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                                 >
                                     {config.mode === 'image' ? (
                                         <>
-                                            <option value={ModelType.GEMINI_PRO_IMAGE}>Nano Banana 2 (Gemini 3 Pro)</option>
+                                            <option value={ModelType.GEMINI_PRO_IMAGE}>Gemini 3.0 Pro (Image)</option>
                                             <option value={ModelType.GEMINI_FLASH_IMAGE}>Gemini 2.5 Flash Image (Fast)</option>
                                             <option value={ModelType.IMAGEN_4}>Imagen 4 (High Quality)</option>
                                         </>
@@ -482,7 +560,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                      {config.mode === 'image' && (
                          <div className={`space-y-2 transition-all duration-300 ${config.model === ModelType.GEMINI_PRO_IMAGE ? 'opacity-100' : 'opacity-50 pointer-events-none grayscale'}`}>
                             <label className={`text-xs font-semibold uppercase tracking-wider ml-1 ${isLight ? 'text-purple-600' : 'text-pink-400'}`}>Resolution {config.model !== ModelType.GEMINI_PRO_IMAGE && '(Model Dependent)'}</label>
-                            <Tooltip content="Set the output resolution. 4K offers maximum detail but takes longer. Only available for Nano Banana 2.">
+                            <Tooltip content="Set the output resolution. 4K offers maximum detail but takes longer. Only available for Gemini 3.0 Pro.">
                                 <div className="relative">
                                     <select 
                                         value={config.imageSize || '1K'}
@@ -513,20 +591,22 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                         <label className={`text-xs font-semibold uppercase tracking-wider ml-1 ${isLight ? 'text-purple-600' : 'text-pink-400'}`}>Aspect Ratio</label>
                         <Tooltip content={config.mode === 'video' ? "Choose the video dimensions (Landscape or Portrait)." : "Choose the dimensions of your output."}>
                             <div className="grid grid-cols-3 gap-3">
-                                {availableRatios.map((ratio) => (
-                                    <button
-                                        key={ratio}
-                                        onClick={() => { playClick(800); updateConfig('aspectRatio', ratio); }}
-                                        className={`py-3 px-2 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                                            config.aspectRatio === ratio 
-                                            ? 'bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border-cyan-500/50 text-cyan-600 dark:text-white shadow-[0_0_10px_rgba(6,182,212,0.1)]' 
-                                            : (isLight ? 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50' : 'bg-[#131629] border-white/10 text-gray-400 hover:bg-[#1a1e35] hover:text-gray-200')
-                                        }`}
-                                    >
-                                        <AspectRatioBox ratio={ratio} isActive={config.aspectRatio === ratio} isLight={isLight} />
-                                        {ratio}
-                                    </button>
-                                ))}
+                                    {availableRatios.map((ratio) => (
+                                        <button
+                                            key={ratio}
+                                            onClick={() => updateConfig('aspectRatio', ratio)}
+                                            className={`flex items-center justify-center p-3 rounded-xl border transition-all duration-300
+                                                ${config.aspectRatio === ratio
+                                                    ? (isLight ? 'bg-white border-cyan-400 shadow-md ring-1 ring-cyan-100' : 'bg-cyan-500/10 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.2)]')
+                                                    : (isLight ? 'bg-slate-50 border-slate-200 hover:border-slate-300' : 'bg-[#131629] border-white/5 hover:border-white/20')}
+                                            `}
+                                        >
+                                            <AspectRatioBox ratio={ratio} isActive={config.aspectRatio === ratio} isLight={isLight} />
+                                            <span className={`ml-2 text-xs font-mono font-medium ${config.aspectRatio === ratio ? (isLight ? 'text-cyan-700' : 'text-cyan-300') : (isLight ? 'text-slate-500' : 'text-gray-500')}`}>
+                                                {ratio}
+                                            </span>
+                                        </button>
+                                    ))}
                             </div>
                         </Tooltip>
                     </div>
@@ -535,144 +615,103 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
         )}
 
         {/* Advanced Tab */}
-        {activeTab === 'advanced' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                
-                {/* Sliders Column */}
-                <div className="space-y-8">
-                    {config.mode === 'image' && (
-                    <>
-                         {/* Quality Slider */}
-                        <Tooltip content="Controls the overall fidelity and detail.">
-                            <SliderControl 
-                                label="Quality / Fidelity"
-                                icon={Sparkles}
-                                value={config.quality}
-                                onChange={(val) => updateConfig('quality', val)}
-                                min={1}
-                                max={100}
-                                displayValue={`${config.quality}%`}
-                                labels={{ left: "Draft", right: "Ultra" }}
-                                isLight={isLight}
-                            />
-                        </Tooltip>
+        {activeTab === 'advanced' && config.mode === 'image' && (
+             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <SliderControl
+                        label="Quality / Fidelity"
+                        icon={Sparkles}
+                        value={config.quality}
+                        onChange={(val) => updateConfig('quality', val)}
+                        min={0}
+                        max={100}
+                        displayValue={`${config.quality}%`}
+                        description="Controls the artistic fidelity and render quality. Higher values take longer."
+                        isLight={isLight}
+                    />
 
-                        {/* Steps Slider */}
-                        <Tooltip content="The number of denoising steps.">
-                            <SliderControl 
-                                label="Inference Steps"
-                                icon={Settings2}
-                                value={config.steps}
-                                onChange={(val) => updateConfig('steps', val)}
-                                min={10}
-                                max={150}
-                                step={1}
-                                isLight={isLight}
-                            />
-                        </Tooltip>
-                    </>
-                    )}
-                    {config.mode === 'video' && (
-                        <div className="p-5 rounded-2xl border border-white/5 bg-white/5 text-gray-400 text-sm text-center">
-                            Advanced sliders are optimized automatically for Veo Video Generation.
+                     <SliderControl
+                        label="Inference Steps"
+                        icon={Layers}
+                        value={config.steps}
+                        onChange={(val) => updateConfig('steps', val)}
+                        min={10}
+                        max={150}
+                        description="More steps = more detail, but slower generation."
+                        isLight={isLight}
+                    />
+
+                    <SliderControl
+                        label="Guidance Scale"
+                        icon={Zap}
+                        value={config.guidanceScale}
+                        onChange={(val) => updateConfig('guidanceScale', val)}
+                        min={1}
+                        max={20}
+                        step={0.5}
+                        displayValue={config.guidanceScale}
+                        description="How strictly the AI follows your prompt. Higher = stricter."
+                        isLight={isLight}
+                    />
+
+                     <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between
+                        ${isLight ? 'bg-white border-slate-200' : 'bg-[#131629] border-white/5'}
+                     `}>
+                        <div className="flex justify-between items-center mb-4">
+                            <span className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}>
+                                <ShieldAlert size={14} className={isLight ? 'text-red-500' : 'text-red-400'} /> NSFW Filter
+                            </span>
+                            <button
+                                onClick={() => updateConfig('enableNSFW', !config.enableNSFW)}
+                                className={`w-12 h-6 rounded-full transition-colors relative
+                                    ${config.enableNSFW ? 'bg-red-500' : (isLight ? 'bg-slate-200' : 'bg-gray-700')}
+                                `}
+                            >
+                                <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${config.enableNSFW ? 'translate-x-6' : ''}`} />
+                            </button>
                         </div>
-                    )}
+                        <p className="text-xs text-gray-500">
+                            Allow potentially mature content. Use with caution.
+                        </p>
+                     </div>
                 </div>
 
-                {/* Toggles Column */}
-                <div className="space-y-6">
-                     {config.mode === 'image' && (
-                     <Tooltip content="Controls how strictly the AI adheres to the prompt.">
-                        <SliderControl 
-                            label="Guidance Scale"
-                            icon={LayoutTemplate}
-                            value={config.guidanceScale}
-                            onChange={(val) => updateConfig('guidanceScale', val)}
-                            min={1}
-                            max={20}
-                            step={0.5}
-                            displayValue={config.guidanceScale.toFixed(1)}
-                            description="Controls how closely the image follows the prompt."
-                            isLight={isLight}
-                        />
-                    </Tooltip>
-                    )}
-
-                    {/* Seed Control */}
-                    <Tooltip content="Set a specific seed number to reproduce the same result.">
-                        <div className={`p-5 rounded-2xl border transition-all relative overflow-hidden group
-                            ${isLight ? 'bg-white border-slate-200' : 'bg-[#131629] border-white/5'}
-                        `}>
-                            <div className="flex justify-between items-center mb-3">
-                                <label className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}>
-                                    <Dice5 size={14} className={isLight ? 'text-purple-500' : 'text-pink-400'} /> 
-                                    Generation Seed
-                                </label>
-                                <button 
-                                    onClick={() => updateConfig('seed', -1)}
-                                    className={`p-1.5 rounded-lg transition-colors ${isLight ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-gray-400'} ${config.seed === -1 ? 'text-cyan-500' : ''}`}
-                                    title="Randomize (-1)"
-                                >
-                                    <RefreshCw size={14} className={config.seed === -1 ? 'animate-spin-slow' : ''} />
-                                </button>
-                            </div>
-                            <div className="flex gap-2">
+                <div className="pt-6 border-t border-white/5">
+                    <div className="flex justify-between items-end">
+                         <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => updateConfig('quality', 100)}
+                                className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-500 text-white text-xs font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-lg shadow-purple-900/30 flex items-center gap-2"
+                            >
+                                <Zap size={14} /> Quantum Mode
+                            </button>
+                         </div>
+                         <div className="text-right">
+                            <label className={`text-xs font-semibold uppercase tracking-wider block mb-1 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Seed</label>
+                            <div className="flex items-center gap-2">
                                 <input 
                                     type="number" 
-                                    value={config.seed === -1 ? '' : config.seed} 
-                                    placeholder="Random (-1)"
+                                    value={config.seed === -1 ? '' : config.seed}
+                                    placeholder="Random"
                                     onChange={(e) => updateConfig('seed', parseInt(e.target.value) || -1)}
-                                    className={`w-full px-3 py-2 rounded-xl text-sm outline-none border transition-colors
+                                    className={`w-24 text-right bg-transparent border-b text-sm focus:outline-none font-mono
                                         ${isLight 
-                                            ? 'bg-slate-50 border-slate-200 focus:border-cyan-500 text-slate-800' 
-                                            : 'bg-black/30 border-white/10 focus:border-cyan-500/50 text-white placeholder-gray-600'}
+                                            ? 'border-slate-300 text-slate-800 focus:border-cyan-500' 
+                                            : 'border-white/20 text-gray-300 focus:border-cyan-500'}
                                     `}
                                 />
                                 <button 
-                                    onClick={() => { playClick(600); updateConfig('seed', Math.floor(Math.random() * 999999999)); }}
-                                    className={`px-3 py-2 rounded-xl border text-xs font-medium transition-colors
-                                        ${isLight 
-                                            ? 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-600' 
-                                            : 'bg-white/5 border-white/10 hover:bg-white/10 text-gray-300'}
-                                    `}
+                                    onClick={() => updateConfig('seed', -1)}
+                                    className={`p-1.5 rounded-lg transition-colors ${config.seed === -1 ? (isLight ? 'text-cyan-600 bg-cyan-50' : 'text-cyan-400 bg-cyan-500/20') : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Randomize Seed"
                                 >
-                                    Roll
+                                    <Dice5 size={16} />
                                 </button>
                             </div>
-                        </div>
-                    </Tooltip>
-
-                    {/* NSFW Toggle */}
-                    {config.mode === 'image' && (
-                    <Tooltip content="Allow generation of potentially sensitive or explicit content (Requires higher trust tier).">
-                        <div className={`p-4 rounded-xl border flex items-center justify-between group transition-colors
-                            ${isLight 
-                                ? 'bg-white border-slate-200 hover:border-slate-300' 
-                                : 'bg-[#131629] border-white/5 hover:border-white/10'}
-                        `}>
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg ${isLight ? 'bg-red-50 text-red-500' : 'bg-red-500/10 text-red-400'}`}>
-                                    <ShieldAlert size={18} />
-                                </div>
-                                <div>
-                                    <div className={`text-sm font-medium ${isLight ? 'text-slate-700' : 'text-gray-200'}`}>Enable NSFW Content</div>
-                                    <div className="text-gray-500 text-xs mt-0.5">Allow sensitive content generation</div>
-                                </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    checked={config.enableNSFW}
-                                    onChange={(e) => updateConfig('enableNSFW', e.target.checked)}
-                                    className="sr-only peer" 
-                                />
-                                <div className={`w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${config.enableNSFW ? 'peer-checked:bg-red-500' : 'peer-checked:bg-cyan-500'}`}></div>
-                            </label>
-                        </div>
-                    </Tooltip>
-                    )}
+                         </div>
+                    </div>
                 </div>
-            </div>
+             </div>
         )}
 
       </div>

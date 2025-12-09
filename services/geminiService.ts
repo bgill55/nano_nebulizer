@@ -43,8 +43,8 @@ const parseJsonPrompt = (input: string): string => {
 export const enhancePrompt = async (input: string, style: string = 'None'): Promise<string> => {
     const ai = getClient();
     
-    // Use Gemini 2.5 Flash for reliable text enhancement
-    const model = 'gemini-2.5-flash';
+    // UPGRADE: Using Gemini 3.0 Pro for superior prompt understanding and creative expansion
+    const model = 'gemini-3-pro-preview';
 
     const systemContext = `You are a legendary AI Art Director and Prompt Engineer. 
     Your goal is to transform simple user ideas into "Hall of Fame" worthy image generation prompts.`;
@@ -118,7 +118,8 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
 
 export const generateBackstory = async (imageBase64: string, prompt: string): Promise<string> => {
     const ai = getClient();
-    const model = 'gemini-2.5-flash'; // Flash is great for vision tasks
+    // UPGRADE: Using Gemini 3.0 Pro for richer storytelling and lore generation
+    const model = 'gemini-3-pro-preview'; 
 
     // Strip header if present
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");

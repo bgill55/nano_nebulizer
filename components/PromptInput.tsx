@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
 import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
-import { playClick } from '../services/audioService';
+import { playClick, playHover, playSuccess } from '../services/audioService';
 
 interface PromptInputProps {
   label?: string;
@@ -35,40 +35,65 @@ const LOADING_PHASES = [
 ];
 
 const SURPRISE_PROMPTS = [
+    // Sci-Fi & Cyberpunk
     "A futuristic city built inside a giant glass dome on Mars, bioluminescent plants, neon lights, 8k resolution, cinematic lighting.",
-    "A cute robot gardener watering plants in a greenhouse, sunlight streaming through glass, vibrant colors, detailed textures.",
-    "A majestic dragon made of crystal and starlight soaring through a nebula, cosmic background, ethereal glow.",
-    "Portrait of an astronaut reflecting a galaxy in their helmet visor, detailed reflection, hyperrealistic.",
-    "A cozy library inside a hollowed-out giant tree, warm lighting, fireflies, magical atmosphere.",
     "Cyberpunk street food vendor in Tokyo, rain, reflections on wet pavement, steam rising from food, neon signs.",
-    "Steampunk airship fleet flying over Victorian London at sunset, detailed mechanical parts, clouds, golden hour.",
-    "A surreal landscape with floating islands and waterfalls cascading into the sky, dreamlike, pastel colors.",
-    "A close-up portrait of a translucent bioluminescent jellyfish floating in a deep space nebula, starlight refraction, macro photography.",
-    "Cyberpunk samurai standing in neon rain, reflection on katana blade, holographic advertisements in background, moody lighting.",
-    "A miniature world inside a lightbulb, mossy forests, tiny waterfalls, soft warm glow, macro detail.",
-    "An ancient temple overgrown with giant glowing mushrooms in a subterranean cavern, mystical atmosphere, cinematic lighting.",
     "A futuristic high-speed train traveling through a glass tube underwater, coral reefs outside, bright daylight.",
-    "Steampunk owl with brass gears and clockwork eyes, perched on a pile of old leather books, dust motes dancing in light beams.",
-    "A surreal painting of melting clocks draped over dead trees in a desert landscape, Dali style, dreamlike.",
-    "A vibrant street market in a floating city in the clouds, airships docking, colorful fabric awnings, golden hour sunlight.",
-    "A crystal fox running through a snow-covered forest, aurora borealis in the sky, magical sparkles.",
-    "Post-apocalyptic overgrown city, nature reclaiming skyscrapers, vines, flowers, deer grazing on asphalt, peaceful atmosphere.",
-    "A detailed isometric view of a wizard's tower cutaway, showing library, alchemy lab, and observatory, cozy lighting.",
-    "Double exposure portrait of a woman's silhouette combined with a forest landscape, misty trees, birds flying.",
-    "A giant turtle carrying an island on its back swimming through a sea of stars, cosmic fantasy.",
-    "Retro 80s synthwave landscape, grid mountains, purple sun, palm trees, digital glitch aesthetic.",
-    "A hyper-realistic photo of a cute baby dragon sleeping on a hoard of gold coins, smoke curling from nostrils.",
-    "An underwater ballroom with merfolk dancing, chandelier made of glowing jellyfish, elegant and grand.",
-    "A noir detective scene in a rainy city, silhouette in a doorway, long shadow, black and white photography.",
-    "Origami paper art landscape of mountains and rivers, textured paper look, soft shadows.",
-    "A futuristic Formula 1 car racing on a track made of light beams, motion blur, speed lines.",
-    "A tranquil zen garden with raked sand, bonsai trees, and a small pagoda, cherry blossoms falling.",
+    "Cyberpunk samurai standing in neon rain, reflection on katana blade, holographic advertisements in background, moody lighting.",
+    "Portrait of an astronaut reflecting a galaxy in their helmet visor, detailed reflection, hyperrealistic.",
     "A mechanical heart made of gears and pistons pumping glowing blue fluid, intricate detail, 8k render.",
-    "A lone wanderer standing on a cliff edge looking at a shattered moon, epic scale, dark fantasy.",
-    "A delicious gourmet burger with melting cheese, crisp lettuce, and steam rising, studio food photography.",
-    "An alien marketplace with strange fruits, multi-limbed shopkeepers, and hovering drones, sci-fi concept art.",
+    "A futuristic racing drone speeding through a neon-lit canyon, motion blur, speed lines.",
+    "A robot repair shop with scattered parts, oil stains, and a friendly droid fixing its own arm, cinematic lighting.",
+    "A massive Dyson sphere structure under construction around a dying star, epic scale, lens flare.",
+    "A hacker's workspace with multiple monitors displaying cascading green code, dark room, ambient purple glow.",
+
+    // Fantasy & Magical
+    "A majestic dragon made of crystal and starlight soaring through a nebula, cosmic background, ethereal glow.",
+    "A cozy library inside a hollowed-out giant tree, warm lighting, fireflies, magical atmosphere.",
+    "An ancient temple overgrown with giant glowing mushrooms in a subterranean cavern, mystical atmosphere, cinematic lighting.",
+    "A crystal fox running through a snow-covered forest, aurora borealis in the sky, magical sparkles.",
+    "An underwater ballroom with merfolk dancing, chandelier made of glowing jellyfish, elegant and grand.",
+    "A giant turtle carrying an island on its back swimming through a sea of stars, cosmic fantasy.",
+    "A wizard's alchemy table cluttered with glowing potions, ancient scrolls, and a sleeping cat, candlelit.",
+    "A floating island with waterfalls cascading into the clouds, vibrant green grass, fantasy castle.",
+    "A phoenix rising from ashes, feathers made of actual fire and embers, dynamic pose.",
+    "A secret garden hidden inside a pocket watch, macro photography, tiny flowers and vines.",
+
+    // Surreal & Abstract
+    "A surreal landscape with floating islands and waterfalls cascading into the sky, dreamlike, pastel colors.",
+    "A miniature world inside a lightbulb, mossy forests, tiny waterfalls, soft warm glow, macro detail.",
+    "A surreal painting of melting clocks draped over dead trees in a desert landscape, Dali style, dreamlike.",
+    "Double exposure portrait of a woman's silhouette combined with a forest landscape, misty trees, birds flying.",
     "A glass chess set where the pieces are filled with different colored smoke, checkmate position, macro shot.",
-    "A magical girl casting a spell, swirling ribbons of light, cherry blossom petals, anime style, dynamic pose."
+    "A cloud shaped like a sleeping polar bear floating over an iceberg, soft lighting.",
+    "A stairway leading up into a moon made of cheese, whimsical art style.",
+    "An astronaut fishing for stars from the edge of a crescent moon.",
+    "A bouquet of flowers where the petals are made of colorful paint splashes, liquid simulation.",
+    "A city made entirely of musical instruments, saxophone skyscrapers, drum buildings.",
+
+    // Photorealistic & Nature
+    "A cute robot gardener watering plants in a greenhouse, sunlight streaming through glass, vibrant colors, detailed textures.",
+    "Post-apocalyptic overgrown city, nature reclaiming skyscrapers, vines, flowers, deer grazing on asphalt, peaceful atmosphere.",
+    "A close-up portrait of a translucent bioluminescent jellyfish floating in a deep space nebula, starlight refraction, macro photography.",
+    "A delicious gourmet burger with melting cheese, crisp lettuce, and steam rising, studio food photography.",
+    "A tranquil zen garden with raked sand, bonsai trees, and a small pagoda, cherry blossoms falling.",
+    "Macro shot of a dew drop on a spider web reflecting a field of sunflowers, high depth of field.",
+    "A majestic lion made of storm clouds and lightning, dark moody sky, electric blue eyes.",
+    "A knolling photography flat lay of vintage camera gear, highly detailed, clean background.",
+    "A red panda wearing aviator goggles flying a vintage biplane, whimsical, highly detailed.",
+    "A hyper-realistic close-up of a human eye, the iris containing a map of the world.",
+
+    // Art Styles & Specific Techniques
+    "Steampunk airship fleet flying over Victorian London at sunset, detailed mechanical parts, clouds, golden hour.",
+    "Steampunk owl with brass gears and clockwork eyes, perched on a pile of old leather books, dust motes dancing in light beams.",
+    "Origami paper art landscape of mountains and rivers, textured paper look, soft shadows.",
+    "Retro 80s synthwave landscape, grid mountains, purple sun, palm trees, digital glitch aesthetic.",
+    "A detailed isometric view of a wizard's tower cutaway, showing library, alchemy lab, and observatory, cozy lighting.",
+    "An oil painting of a rainy cafe window in Paris, impressionist style, blurry lights.",
+    "A charcoal sketch of a wolf howling at the moon, high contrast, rough texture.",
+    "A low poly 3D render of a camping site at night, fire, tent, stars, minimal design.",
+    "A stained glass window depicting a cosmic battle between sun and moon.",
+    "A porcelain doll with kintsugi gold cracks, hauntingly beautiful, dramatic lighting."
 ];
 
 const PromptInput: React.FC<PromptInputProps> = ({ 
@@ -99,6 +124,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
+
+  // Randomizer State
+  const [isRolling, setIsRolling] = useState(false);
 
   // Voice Input State
   const [isListening, setIsListening] = useState(false);
@@ -245,9 +273,35 @@ const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const handleSurpriseMe = () => {
+      if (isRolling) return;
+      setIsRolling(true);
       playClick(1500);
-      const randomPrompt = SURPRISE_PROMPTS[Math.floor(Math.random() * SURPRISE_PROMPTS.length)];
-      onChange(randomPrompt);
+
+      let rolls = 0;
+      const maxRolls = 12;
+      const baseInterval = 50;
+
+      // Slot machine effect: shuffle through options rapidly then slow down
+      const shuffle = () => {
+        if (rolls >= maxRolls) {
+            // Final pick
+            const randomPrompt = SURPRISE_PROMPTS[Math.floor(Math.random() * SURPRISE_PROMPTS.length)];
+            onChange(randomPrompt);
+            setIsRolling(false);
+            playSuccess(); 
+            return;
+        }
+
+        const tempPrompt = SURPRISE_PROMPTS[Math.floor(Math.random() * SURPRISE_PROMPTS.length)];
+        onChange(tempPrompt);
+        playHover(); // Tick sound
+        
+        rolls++;
+        // Slow down linearly
+        setTimeout(shuffle, baseInterval + (rolls * 15));
+      };
+
+      shuffle();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -275,12 +329,14 @@ const PromptInput: React.FC<PromptInputProps> = ({
             className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[120px] transition-colors
               ${isLight ? 'text-slate-800 placeholder-slate-400' : 'text-gray-100 placeholder-gray-500'}
               ${inputImage ? 'pb-24' : ''} 
+              ${isRolling ? 'blur-[1px] opacity-80' : 'blur-0 opacity-100'}
             `}
             placeholder={isListening ? "Listening..." : placeholder}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => !isRolling && onChange(e.target.value)}
             onKeyDown={isMain ? handleKeyDown : undefined}
             spellCheck={false}
+            disabled={isRolling}
           />
           
           {/* Helper Text for Shortcut */}
@@ -377,14 +433,16 @@ const PromptInput: React.FC<PromptInputProps> = ({
                  {/* Surprise Me Button */}
                  <button 
                     onClick={handleSurpriseMe}
-                    className={`flex-1 min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border
+                    disabled={isRolling}
+                    className={`flex-1 min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border group/dice
                         ${isLight 
                             ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
                             : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                        ${isRolling ? 'text-cyan-400 border-cyan-500/30' : ''}
                     `}
                     title="Surprise Me (Random Prompt)"
                  >
-                    <Dices size={14} />
+                    <Dices size={14} className={`transition-transform duration-500 ${isRolling ? 'animate-spin' : 'group-hover/dice:rotate-180'}`} />
                  </button>
               </div>
             </>
