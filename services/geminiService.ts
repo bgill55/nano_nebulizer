@@ -116,6 +116,44 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
     }
 };
 
+export const detectStyleFromPrompt = async (prompt: string, availableStyles: string[]): Promise<string> => {
+    const ai = getClient();
+    const model = 'gemini-3-pro-preview';
+
+    if (!prompt || prompt.trim().length < 5) return 'None';
+
+    const stylesList = availableStyles.join(', ');
+    const instruction = `
+    Analyze the following image description and select the BEST matching art style from the provided list.
+    
+    Description: "${prompt}"
+    
+    Available Styles: [${stylesList}, None]
+    
+    Rules:
+    - Return ONLY the exact name of the style from the list.
+    - If the prompt strongly suggests a specific style (e.g. "neon lights" -> Cyberpunk, "paper fold" -> Origami), pick it.
+    - If no specific style fits well, return "None".
+    - Do not add explanations.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: { parts: [{ text: instruction }] }
+        });
+
+        const text = response.text?.trim();
+        if (text && (availableStyles.includes(text) || text === 'None')) {
+            return text;
+        }
+        return 'None';
+    } catch (e) {
+        console.error("Style Detection Failed:", e);
+        return 'None';
+    }
+};
+
 export const generateBackstory = async (imageBase64: string, prompt: string): Promise<string> => {
     const ai = getClient();
     // UPGRADE: Using Gemini 3.0 Pro for richer storytelling and lore generation

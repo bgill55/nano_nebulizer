@@ -1,9 +1,10 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check, BrainCircuit } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 import { playClick, playHover, playSuccess } from '../services/audioService';
+import { detectStyleFromPrompt } from '../services/geminiService';
 
 interface PromptInputProps {
   label?: string;
@@ -148,6 +149,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement>(null);
   const [isStyleRolling, setIsStyleRolling] = useState(false);
+  const [isMatching, setIsMatching] = useState(false); // New Smart Match loading state
 
   // Randomizer State
   const [isRolling, setIsRolling] = useState(false);
@@ -367,6 +369,30 @@ const PromptInput: React.FC<PromptInputProps> = ({
       shuffle();
   };
 
+  const handleSmartMatch = async () => {
+    if (isMatching || !onStyleChange) return;
+    setIsMatching(true);
+    playClick(1500);
+
+    try {
+        const styleValues = AVAILABLE_STYLES.map(s => s.value);
+        const match = await detectStyleFromPrompt(value, styleValues);
+        
+        if (match && match !== 'None') {
+            onStyleChange(match);
+            playSuccess();
+        } else {
+            // If no match found or error, maybe just flash 'None' or do nothing
+            onStyleChange('None');
+        }
+    } catch (e) {
+        console.error("Smart Match failed", e);
+    } finally {
+        setIsMatching(false);
+        setShowStyleMenu(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
           if (onGenerate && !isLoading) {
@@ -568,15 +594,28 @@ const PromptInput: React.FC<PromptInputProps> = ({
                               </div>
                               
                               <div className="p-3">
-                                  {/* Stylenator Random Button */}
-                                  <button 
-                                      onClick={handleRandomStyle}
-                                      disabled={isStyleRolling}
-                                      className="w-full py-3 mb-4 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                                  >
-                                      <Sparkles size={14} className={isStyleRolling ? 'animate-spin' : ''} />
-                                      {isStyleRolling ? 'Rolling...' : 'Surprise Style'}
-                                  </button>
+                                  <div className="flex gap-2 mb-4">
+                                      {/* Stylenator Random Button */}
+                                      <button 
+                                          onClick={handleRandomStyle}
+                                          disabled={isStyleRolling || isMatching}
+                                          className="flex-1 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                                      >
+                                          <Sparkles size={14} className={isStyleRolling ? 'animate-spin' : ''} />
+                                          <span className="text-[10px]">Surprise</span>
+                                      </button>
+                                      
+                                      {/* Smart Match Button */}
+                                      <button 
+                                          onClick={handleSmartMatch}
+                                          disabled={isStyleRolling || isMatching}
+                                          className="flex-1 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                                          title="Auto-detect style from prompt"
+                                      >
+                                          <BrainCircuit size={14} className={isMatching ? 'animate-pulse' : ''} />
+                                          <span className="text-[10px]">{isMatching ? 'Thinking' : 'Smart Match'}</span>
+                                      </button>
+                                  </div>
 
                                   <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                                       {AVAILABLE_STYLES.map((style) => (
