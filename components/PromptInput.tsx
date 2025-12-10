@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 import { playClick, playHover, playSuccess } from '../services/audioService';
 
@@ -22,6 +22,8 @@ interface PromptInputProps {
   onClearImage?: () => void;
   onEnhance?: () => void;
   isEnhancing?: boolean;
+  currentStyle?: string;
+  onStyleChange?: (style: string) => void;
 }
 
 const LOADING_PHASES = [
@@ -96,6 +98,21 @@ const SURPRISE_PROMPTS = [
     "A porcelain doll with kintsugi gold cracks, hauntingly beautiful, dramatic lighting."
 ];
 
+const AVAILABLE_STYLES = [
+    { label: 'Anime', value: 'Anime', color: 'from-pink-500 to-rose-500' },
+    { label: 'Cinematic', value: 'Cinematic', color: 'from-amber-500 to-orange-600' },
+    { label: 'Cyberpunk', value: 'Cyberpunk', color: 'from-cyan-500 to-blue-600' },
+    { label: 'Photoreal', value: 'Photorealistic', color: 'from-emerald-500 to-teal-600' },
+    { label: 'Oil Paint', value: 'Oil Painting', color: 'from-yellow-600 to-red-600' },
+    { label: '3D Render', value: '3D Render', color: 'from-indigo-500 to-purple-600' },
+    { label: 'Pixel Art', value: 'Pixel Art', color: 'from-purple-600 to-indigo-600' },
+    { label: 'Fantasy', value: 'Dark Fantasy', color: 'from-slate-700 to-black' },
+    { label: 'Watercolor', value: 'Watercolor', color: 'from-cyan-400 to-blue-400' },
+    { label: 'Vaporwave', value: 'Vaporwave', color: 'from-pink-400 to-cyan-400' },
+    { label: 'Origami', value: 'Origami Paper Art', color: 'from-orange-400 to-yellow-500' },
+    { label: 'Isometric', value: 'Isometric 3D', color: 'from-blue-500 to-cyan-500' },
+];
+
 const PromptInput: React.FC<PromptInputProps> = ({ 
   placeholder, 
   value, 
@@ -111,7 +128,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
   onImageUpload,
   onClearImage,
   onEnhance,
-  isEnhancing = false
+  isEnhancing = false,
+  currentStyle = 'None',
+  onStyleChange
 }) => {
   const isLight = theme === 'Starlight Light';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -124,6 +143,11 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
+
+  // Style Menu State
+  const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const styleMenuRef = useRef<HTMLDivElement>(null);
+  const [isStyleRolling, setIsStyleRolling] = useState(false);
 
   // Randomizer State
   const [isRolling, setIsRolling] = useState(false);
@@ -226,19 +250,22 @@ const PromptInput: React.FC<PromptInputProps> = ({
     return () => clearInterval(interval);
   }, [isLoading, mode]);
 
-  // Click outside listener for history dropdown
+  // Click outside listener for history and style menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
         setShowHistory(false);
       }
+      if (styleMenuRef.current && !styleMenuRef.current.contains(event.target as Node)) {
+        setShowStyleMenu(false);
+      }
     };
 
-    if (showHistory) {
+    if (showHistory || showStyleMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showHistory]);
+  }, [showHistory, showStyleMenu]);
 
   const toggleHistory = () => {
     playClick(600);
@@ -246,6 +273,13 @@ const PromptInput: React.FC<PromptInputProps> = ({
       setHistoryItems(getPromptHistory());
     }
     setShowHistory(!showHistory);
+    setShowStyleMenu(false);
+  };
+
+  const toggleStyleMenu = () => {
+      playClick(700);
+      setShowStyleMenu(!showStyleMenu);
+      setShowHistory(false);
   };
 
   const handleSelectHistory = (prompt: string) => {
@@ -304,6 +338,35 @@ const PromptInput: React.FC<PromptInputProps> = ({
       shuffle();
   };
 
+  const handleRandomStyle = () => {
+      if (isStyleRolling || !onStyleChange) return;
+      setIsStyleRolling(true);
+      playClick(1500);
+
+      let rolls = 0;
+      const maxRolls = 10;
+      const baseInterval = 60;
+
+      const shuffle = () => {
+          if (rolls >= maxRolls) {
+              const randomStyle = AVAILABLE_STYLES[Math.floor(Math.random() * AVAILABLE_STYLES.length)];
+              onStyleChange(randomStyle.value);
+              setIsStyleRolling(false);
+              playSuccess();
+              return;
+          }
+
+          const tempStyle = AVAILABLE_STYLES[Math.floor(Math.random() * AVAILABLE_STYLES.length)];
+          onStyleChange(tempStyle.value);
+          playHover();
+
+          rolls++;
+          setTimeout(shuffle, baseInterval + (rolls * 20));
+      };
+
+      shuffle();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
           if (onGenerate && !isLoading) {
@@ -311,6 +374,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
           }
       }
   };
+
+  // Find active style object for display
+  const activeStyleObj = AVAILABLE_STYLES.find(s => s.value === currentStyle);
 
   return (
     <div className={`relative w-full rounded-2xl transition-all duration-300 p-1 group border z-20
@@ -325,6 +391,22 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
       <div className="flex h-full">
         <div className="flex-1 relative flex flex-col">
+            
+           {/* Current Style Badge */}
+           {currentStyle !== 'None' && activeStyleObj && (
+             <button 
+                onClick={toggleStyleMenu}
+                className={`absolute top-3 right-4 z-10 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all hover:scale-105
+                    ${isLight 
+                        ? 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-white hover:shadow-sm' 
+                        : 'bg-black/40 border-white/10 text-gray-300 hover:bg-black/60'}
+                `}
+             >
+                <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${activeStyleObj.color} ${isStyleRolling ? 'animate-spin' : ''}`} />
+                {activeStyleObj.label}
+             </button>
+           )}
+
            <textarea
             className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[120px] transition-colors
               ${isLight ? 'text-slate-800 placeholder-slate-400' : 'text-gray-100 placeholder-gray-500'}
@@ -445,6 +527,82 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     <Dices size={14} className={`transition-transform duration-500 ${isRolling ? 'animate-spin' : 'group-hover/dice:rotate-180'}`} />
                  </button>
               </div>
+
+              {/* Style Selector (Stylenator) */}
+              {onStyleChange && mode === 'image' && (
+                  <div className="relative w-full" ref={styleMenuRef}>
+                      <button 
+                        onClick={toggleStyleMenu}
+                        className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border
+                            ${isLight 
+                            ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
+                            : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                            ${showStyleMenu ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
+                            ${currentStyle !== 'None' ? (isLight ? 'border-cyan-300' : 'border-cyan-500/30') : ''}
+                        `}
+                        title="Style Selector"
+                      >
+                         <Palette size={14} className={isStyleRolling ? 'animate-spin' : ''} /> 
+                         <span className="hidden sm:inline">Style</span>
+                      </button>
+
+                      {/* Style Menu Popover */}
+                      {showStyleMenu && (
+                          <div className={`absolute top-full right-0 mt-2 w-64 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right
+                              ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
+                          `}>
+                              <div className={`p-3 border-b flex items-center justify-between
+                                  ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}
+                              `}>
+                                  <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>The Stylenator</span>
+                                  <button 
+                                      onClick={() => {
+                                          playClick(500);
+                                          onStyleChange('None');
+                                          setShowStyleMenu(false);
+                                      }}
+                                      className={`text-[10px] hover:underline ${isLight ? 'text-slate-500' : 'text-gray-500'}`}
+                                  >
+                                      Reset
+                                  </button>
+                              </div>
+                              
+                              <div className="p-3">
+                                  {/* Stylenator Random Button */}
+                                  <button 
+                                      onClick={handleRandomStyle}
+                                      disabled={isStyleRolling}
+                                      className="w-full py-3 mb-4 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                                  >
+                                      <Sparkles size={14} className={isStyleRolling ? 'animate-spin' : ''} />
+                                      {isStyleRolling ? 'Rolling...' : 'Surprise Style'}
+                                  </button>
+
+                                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                                      {AVAILABLE_STYLES.map((style) => (
+                                          <button
+                                              key={style.value}
+                                              onClick={() => {
+                                                  playClick(800);
+                                                  onStyleChange(style.value);
+                                                  setShowStyleMenu(false);
+                                              }}
+                                              className={`text-left px-3 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-2
+                                                  ${currentStyle === style.value
+                                                      ? (isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-900/30 border-cyan-500/50 text-cyan-300')
+                                                      : (isLight ? 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10')}
+                                              `}
+                                          >
+                                              <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${style.color}`} />
+                                              {style.label}
+                                          </button>
+                                      ))}
+                                  </div>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              )}
             </>
           )}
 

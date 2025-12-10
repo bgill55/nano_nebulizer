@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Background from './components/Background';
@@ -510,6 +511,8 @@ const App: React.FC = () => {
                             onClearImage={() => updateConfig('inputImage', null)}
                             onEnhance={handleEnhancePrompt}
                             isEnhancing={isEnhancing}
+                            currentStyle={config.style}
+                            onStyleChange={(style) => updateConfig('style', style)}
                         />
 
                         {config.mode === 'image' && (
