@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { AppConfig, ModelType } from "../types";
 
 const getClient = () => {
@@ -313,7 +313,14 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
                     imageConfig: {
                          aspectRatio: aspectRatio,
                          imageSize: isPro ? imageSize : undefined // Only Pro supports size selection
-                    }
+                    },
+                    // Relax safety settings slightly to prevent "Text Refusal" instead of image generation
+                    safetySettings: [
+                        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                    ]
                 }
             });
 
@@ -340,8 +347,15 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
                      // 3. Check for text refusal (e.g. "I cannot generate images of...")
                      const textPart = content.parts.find(p => p.text);
                      if (textPart && textPart.text) {
+                         const text = textPart.text;
+                         
+                         // Check if it's a false positive (model saying "Here is..." but failing)
+                         if (text.match(/Here('s| is) (your|the) image/i) || text.includes("generating the image")) {
+                             throw new Error("Gemini Glitch: The model claimed to generate an image but returned no data. Please try again.");
+                         }
+
                          // Clean up the error message length
-                         const cleanError = textPart.text.length > 150 ? textPart.text.substring(0, 150) + "..." : textPart.text;
+                         const cleanError = text.length > 150 ? text.substring(0, 150) + "..." : text;
                          throw new Error(`Model Refusal: ${cleanError}`);
                      }
                  }
