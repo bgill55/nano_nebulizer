@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Background from './components/Background';
@@ -13,7 +12,7 @@ import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
 import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID } from './services/storageService';
 import { playPowerUp, playSuccess, playError } from './services/audioService';
-import { RefreshCcw, AlertCircle, Key, Zap } from 'lucide-react';
+import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info } from 'lucide-react';
 
 const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, bad anatomy, ugly, pixelated, watermark, text, signature, worst quality, deformed, disfigured, cropped, mutation, bad proportions, extra limbs, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck";
 
@@ -43,7 +42,8 @@ const App: React.FC = () => {
   
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[] | null>(null);
   
-  const [error, setError] = useState<string | null>(null);
+  // Notification State
+  const [notification, setNotification] = useState<{message: string, type: 'info' | 'success' | 'warning' | 'error'} | null>(null);
   const [showFreeTierSuggestion, setShowFreeTierSuggestion] = useState(false);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   
@@ -73,6 +73,20 @@ const App: React.FC = () => {
     };
     init();
   }, []);
+
+  // Notification Timer
+  useEffect(() => {
+    if (notification) {
+        const timer = setTimeout(() => {
+            setNotification(null);
+        }, 5000);
+        return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+      setNotification({ message, type });
+  };
 
   useEffect(() => {
     if (!livePreviewEnabled || !hasKey || config.mode === 'video') {
@@ -123,7 +137,7 @@ const App: React.FC = () => {
       try {
         await window.aistudio.openSelectKey();
         setHasKey(true);
-        setError(null);
+        setNotification(null);
         setShowFreeTierSuggestion(false);
       } catch (e) {
         console.error("Key selection failed", e);
@@ -146,20 +160,20 @@ const App: React.FC = () => {
 
   const handleEnhancePrompt = async () => {
     if (!config.prompt.trim()) {
-        setError("Please enter a basic prompt to enhance.");
-        setTimeout(() => setError(null), 3000);
+        showNotification("Please enter a basic prompt to enhance.", 'warning');
         return;
     }
 
     setIsEnhancing(true);
-    setError(null);
+    setNotification(null);
     try {
         // Pass the current style to the enhancer so it knows context
         const enhanced = await enhancePrompt(config.prompt, config.style);
         updateConfig('prompt', enhanced);
+        showNotification("Prompt enhanced using Gemini 3.0 Pro reasoning.", 'success');
     } catch (err: any) {
         console.error(err);
-        setError("Failed to enhance prompt.");
+        showNotification("Failed to enhance prompt.", 'error');
     } finally {
         setIsEnhancing(false);
     }
@@ -167,22 +181,22 @@ const App: React.FC = () => {
 
   const switchToFreeTier = () => {
       updateConfig('model', ModelType.GEMINI_FLASH_IMAGE);
-      setError(null);
+      setNotification(null);
       setShowFreeTierSuggestion(false);
+      showNotification("Switched to Gemini Flash (Free Tier)", 'info');
   };
 
   const handleGenerate = async () => {
     if (!config.prompt.trim() && !config.inputImage) {
-      setError("Please describe the output you want to generate or upload a reference.");
+      showNotification("Please describe the output you want to generate or upload a reference.", 'warning');
       setShowFreeTierSuggestion(false);
-      setTimeout(() => setError(null), 3000);
       playError();
       return;
     }
 
     setIsGenerating(true);
     playPowerUp();
-    setError(null);
+    setNotification(null);
     setShowFreeTierSuggestion(false);
     setGeneratedImages(null);
 
@@ -247,13 +261,13 @@ const App: React.FC = () => {
       playError();
       if (err.message && (err.message.includes('403') || err.message.includes('permission') || err.message.includes('Permission denied'))) {
           if (config.model !== ModelType.GEMINI_FLASH_IMAGE) {
-             setError("Permission denied. This model requires a paid plan.");
+             showNotification("Permission denied. This model requires a paid plan.", 'error');
              setShowFreeTierSuggestion(true);
           } else {
-             setError("Permission denied. Please select a valid API Key.");
+             showNotification("Permission denied. Please select a valid API Key.", 'error');
           }
       } else {
-          setError(err.message || "Failed to generate. Please try again.");
+          showNotification(err.message || "Failed to generate. Please try again.", 'error');
       }
     } finally {
       setIsGenerating(false);
@@ -266,7 +280,7 @@ const App: React.FC = () => {
     setIsGenerating(true);
     playPowerUp();
     setGeneratedImages(null);
-    setError(null);
+    setNotification(null);
 
     try {
         let enhancedPrompt = config.prompt;
@@ -304,7 +318,7 @@ const App: React.FC = () => {
         playSuccess();
     } catch (err: any) {
         console.error(err);
-        setError("Failed to generate variations.");
+        showNotification("Failed to generate variations.", 'error');
         playError();
     } finally {
         setIsGenerating(false);
@@ -314,13 +328,14 @@ const App: React.FC = () => {
   const handleSaveToGallery = async (image: GeneratedImage) => {
     const updatedGallery = await saveToGallery(image);
     setGalleryImages(updatedGallery);
+    showNotification("Saved to Gallery", 'success');
   };
 
   const handleUpscale = async (targetImage: GeneratedImage) => {
     if (!targetImage.url || targetImage.type !== 'image') return;
     
     setIsUpscaling(true);
-    setError(null);
+    setNotification(null);
 
     try {
       const upscaledUrl = await upscaleImage(targetImage.url, config.aspectRatio);
@@ -333,10 +348,11 @@ const App: React.FC = () => {
           );
       });
       playSuccess();
+      showNotification("Image upscaled to 4K resolution.", 'success');
       
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to upscale image.");
+      showNotification(err.message || "Failed to upscale image.", 'error');
       playError();
     } finally {
       setIsUpscaling(false);
@@ -347,6 +363,7 @@ const App: React.FC = () => {
       updateConfig('inputImage', image.url);
       setGeneratedImages(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      showNotification("Image loaded as reference.", 'info');
   };
 
   const handleShare = async (image: GeneratedImage) => {
@@ -375,6 +392,7 @@ const App: React.FC = () => {
     }));
     setIsGalleryOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    showNotification("Settings restored from history.", 'info');
   };
 
   const handleTemplateApply = (text: string) => {
@@ -437,11 +455,20 @@ const App: React.FC = () => {
           </p>
         </div>
 
-        {error && (
-            <div className="fixed top-24 right-4 z-[60] max-w-sm w-full bg-[#1e293b] border-l-4 border-red-500 text-white p-4 rounded-r shadow-2xl animate-in slide-in-from-right-10 fade-in duration-300 flex items-start gap-3">
-                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
+        {notification && (
+            <div className={`fixed top-24 right-4 z-[60] max-w-sm w-full border-l-4 p-4 rounded-r shadow-2xl animate-in slide-in-from-right-10 fade-in duration-300 flex items-start gap-3 backdrop-blur-md
+                ${notification.type === 'error' ? 'bg-[#1e293b]/90 border-red-500 text-white' : 
+                  notification.type === 'success' ? 'bg-[#1e293b]/90 border-green-500 text-white' : 
+                  notification.type === 'warning' ? 'bg-[#1e293b]/90 border-yellow-500 text-white' :
+                  'bg-[#1e293b]/90 border-cyan-500 text-white'}
+            `}>
+                {notification.type === 'error' && <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />}
+                {notification.type === 'success' && <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20} />}
+                {notification.type === 'warning' && <Zap className="text-yellow-500 shrink-0 mt-0.5" size={20} />}
+                {notification.type === 'info' && <Info className="text-cyan-500 shrink-0 mt-0.5" size={20} />}
+                
                 <div className="flex-1">
-                   <p className="font-medium text-sm">{error}</p>
+                   <p className="font-medium text-sm">{notification.message}</p>
                    {showFreeTierSuggestion && (
                      <button 
                         onClick={switchToFreeTier}
@@ -451,7 +478,7 @@ const App: React.FC = () => {
                      </button>
                    )}
                 </div>
-                <button onClick={() => setError(null)} className="text-gray-400 hover:text-white">✕</button>
+                <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-white">✕</button>
             </div>
         )}
 
@@ -498,7 +525,11 @@ const App: React.FC = () => {
                 </div>
                 </div>
 
-                <ControlPanel config={config} updateConfig={updateConfig} />
+                <ControlPanel 
+                    config={config} 
+                    updateConfig={updateConfig} 
+                    onNotify={showNotification}
+                />
             </div>
 
             <div className="lg:w-[320px] xl:w-[380px] shrink-0 lg:sticky lg:top-24">
@@ -523,6 +554,7 @@ const App: React.FC = () => {
                 setConfig(DEFAULT_CONFIG);
                 setGeneratedImages(null);
                 setPreviewImage(null);
+                showNotification("All settings reset to default", 'info');
             }}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:rotate-180 duration-500 group relative border
                 ${isLight 

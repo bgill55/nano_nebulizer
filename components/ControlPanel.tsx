@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppConfig, ModelType, AppTheme, GenerationMode } from '../types';
 import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon } from 'lucide-react';
-import { playClick } from '../services/audioService';
+import { playClick, playPowerUp } from '../services/audioService';
 
 interface ControlPanelProps {
   config: AppConfig;
   updateConfig: (key: keyof AppConfig, value: any) => void;
+  onNotify?: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
 }
 
 const PRESETS = [
@@ -309,7 +309,7 @@ const AspectRatioBox = ({ ratio, isActive, isLight }: { ratio: string, isActive:
     );
 };
 
-const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => {
+const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNotify }) => {
   const [activeTab, setActiveTab] = useState<'styles' | 'model' | 'advanced'>('model');
   const isLight = config.theme === 'Starlight Light';
 
@@ -332,6 +332,23 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
       } else {
           updateConfig('model', ModelType.GEMINI_FLASH_IMAGE);
       }
+  };
+
+  const activateQuantumMode = () => {
+    playPowerUp();
+    // 1. Force the high-end model
+    updateConfig('model', ModelType.GEMINI_PRO_IMAGE);
+    // 2. Maximize render settings
+    updateConfig('quality', 100);
+    updateConfig('steps', 150); // Max inference steps
+    updateConfig('guidanceScale', 15); // Strict adherence
+    // 3. Set resolution to 4K
+    updateConfig('imageSize', '4K');
+    
+    // Notify User
+    if (onNotify) {
+        onNotify("QUANTUM MODE ENGAGED: Max fidelity applied. Generation will take longer (~20s).", 'warning');
+    }
   };
 
   const availableRatios = config.mode === 'video' 
@@ -680,7 +697,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig }) => 
                     <div className="flex justify-between items-end">
                          <div className="flex items-center gap-2">
                             <button 
-                                onClick={() => updateConfig('quality', 100)}
+                                onClick={activateQuantumMode}
                                 className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-cyan-500 text-white text-xs font-bold uppercase tracking-wider hover:scale-105 transition-transform shadow-lg shadow-purple-900/30 flex items-center gap-2"
                             >
                                 <Zap size={14} /> Quantum Mode

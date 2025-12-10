@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square } from 'lucide-react';
+import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square, Maximize2 } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import HolographicCard from './HolographicCard';
 import { generateBackstory } from '../services/geminiService';
@@ -41,6 +41,9 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
 
   // Glitch Reveal State
   const [isRevealed, setIsRevealed] = useState(false);
+  
+  // Fullscreen State
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     // Reset reveal animation when image changes
@@ -62,7 +65,8 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
         } else if (e.key === 'ArrowLeft') {
             setSelectedIndex(prev => (prev - 1 + images.length) % images.length);
         } else if (e.key === 'Escape') {
-            onClose();
+            if (isFullscreen) setIsFullscreen(false);
+            else onClose();
         }
     };
 
@@ -71,7 +75,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
         window.removeEventListener('keydown', handleKeyDown);
         window.speechSynthesis.cancel();
     };
-  }, [images, isUpscaling, onClose]);
+  }, [images, isUpscaling, onClose, isFullscreen]);
 
   if (!images || images.length === 0) return null;
   const currentImage = images[selectedIndex];
@@ -165,14 +169,15 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   const prevImage = () => { playClick(700); setSelectedIndex(prev => (prev - 1 + images.length) % images.length); };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4">
       <div 
         className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity"
         onClick={!isUpscaling ? onClose : undefined}
       />
 
       {/* Main Container */}
-      <div className="relative z-10 w-full max-w-6xl bg-[#0f172a] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300 h-[90vh]">
+      <div className="relative z-10 w-full max-w-6xl bg-[#0f172a] md:rounded-2xl border-x-0 md:border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300 h-full md:h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-[#131629] shrink-0">
@@ -189,16 +194,17 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
           </button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        {/* Layout: Vertical on mobile, Horizontal on desktop */}
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
             
             {/* Sidebar Thumbnails */}
             {images.length > 1 && (
-                <div className="w-full md:w-32 bg-[#050510] border-r border-white/5 p-4 flex flex-row md:flex-col gap-3 overflow-auto shrink-0 order-2 md:order-1 custom-scrollbar">
+                <div className="w-full md:w-32 bg-[#050510] border-t md:border-t-0 md:border-r border-white/5 p-4 flex flex-row md:flex-col gap-3 overflow-auto shrink-0 order-2 md:order-1 custom-scrollbar">
                     {images.map((img, idx) => (
                         <button
                             key={img.id}
                             onClick={() => setSelectedIndex(idx)}
-                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group shrink-0 w-20 md:w-full
+                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group shrink-0 w-16 md:w-full
                                 ${selectedIndex === idx 
                                     ? 'border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-[1.02] z-10' 
                                     : 'border-white/10 opacity-60 hover:opacity-100 hover:border-white/30 hover:scale-[1.02]'}
@@ -214,11 +220,6 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                             {selectedIndex === idx && (
                                 <div className="absolute inset-0 bg-cyan-500/10 ring-1 ring-inset ring-cyan-400/30" />
                             )}
-                            <div className={`absolute bottom-1 right-1 text-[10px] font-mono px-1.5 rounded-sm backdrop-blur-sm
-                                ${selectedIndex === idx ? 'bg-cyan-500 text-white' : 'bg-black/60 text-gray-300'}
-                            `}>
-                                {idx + 1}
-                            </div>
                         </button>
                     ))}
                 </div>
@@ -237,20 +238,31 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                     <>
                         <button 
                             onClick={(e) => { e.stopPropagation(); prevImage(); }}
-                            className="absolute left-4 z-20 p-2 rounded-full bg-black/50 border border-white/10 text-white hover:bg-black/70 hover:scale-110 transition-all opacity-0 group-hover/main:opacity-100 backdrop-blur-sm"
+                            className="absolute left-2 md:left-4 z-20 p-2 rounded-full bg-black/50 border border-white/10 text-white hover:bg-black/70 hover:scale-110 transition-all backdrop-blur-sm"
                         >
                             <ChevronLeft size={24} />
                         </button>
                         <button 
                             onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                            className="absolute right-4 z-20 p-2 rounded-full bg-black/50 border border-white/10 text-white hover:bg-black/70 hover:scale-110 transition-all opacity-0 group-hover/main:opacity-100 backdrop-blur-sm"
+                            className="absolute right-2 md:right-4 z-20 p-2 rounded-full bg-black/50 border border-white/10 text-white hover:bg-black/70 hover:scale-110 transition-all backdrop-blur-sm"
                         >
                             <ChevronRight size={24} />
                         </button>
                     </>
                 )}
 
-                <div className={`relative transition-all duration-700 ${isRevealed ? 'opacity-100 translate-y-0 filter-none' : 'opacity-0 translate-y-4 blur-xl'}`}>
+                {/* Fullscreen Toggle */}
+                {!isVideo && !isUpscaling && (
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }}
+                        className="absolute top-4 right-4 z-30 p-2 rounded-full bg-black/50 border border-white/10 text-white hover:bg-white/10 transition-opacity backdrop-blur-md"
+                        title="Fullscreen"
+                    >
+                        <Maximize2 size={20} />
+                    </button>
+                )}
+
+                <div className={`relative transition-all duration-700 w-full h-full flex items-center justify-center ${isRevealed ? 'opacity-100 translate-y-0 filter-none' : 'opacity-0 translate-y-4 blur-xl'}`}>
                     {/* Glitch Overlay for Reveal Effect */}
                     {!isRevealed && (
                         <div className="absolute inset-0 bg-cyan-500 mix-blend-color-dodge opacity-50 animate-pulse z-30" />
@@ -262,18 +274,20 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                             controls 
                             autoPlay 
                             loop
-                            className="max-h-[60vh] md:max-h-[70vh] max-w-full rounded-lg shadow-2xl border border-white/10"
+                            className="max-h-full max-w-full rounded-lg shadow-2xl border border-white/10"
                         />
                     ) : (
-                        <HolographicCard>
-                            <img 
-                                src={currentImage.url} 
-                                alt={prompt}
-                                className={`max-h-[60vh] md:max-h-[70vh] max-w-full w-auto h-auto object-contain rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.5)] border border-white/5 relative z-10 transition-all duration-500 
-                                    ${isUpscaling ? 'blur-sm scale-[0.98]' : 'blur-0 scale-100'}
-                                `}
-                            />
-                        </HolographicCard>
+                        <div onClick={() => setIsFullscreen(true)} className="cursor-zoom-in max-h-full max-w-full flex items-center justify-center">
+                            <HolographicCard isActive={!isUpscaling}>
+                                <img 
+                                    src={currentImage.url} 
+                                    alt={prompt}
+                                    className={`max-h-[60vh] md:max-h-[70vh] max-w-full w-auto h-auto object-contain rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.5)] border border-white/5 relative z-10 transition-all duration-500 
+                                        ${isUpscaling ? 'blur-sm scale-[0.98]' : 'blur-0 scale-100'}
+                                    `}
+                                />
+                            </HolographicCard>
+                        </div>
                     )}
                 </div>
 
@@ -288,7 +302,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                 
                 {/* Backstory / Neural Link Overlay */}
                 {revealStory && (
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:w-[600px] z-40 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[95%] md:w-[600px] z-40 animate-in slide-in-from-bottom-4 fade-in duration-300">
                         <div className="bg-[#0b0e1e]/95 border border-cyan-500/30 rounded-xl p-5 shadow-2xl backdrop-blur-xl relative overflow-hidden group/lore">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50" />
                             <button 
@@ -344,15 +358,15 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-[#131629] border-t border-white/5 space-y-4 shrink-0 z-20">
-            <div className="flex items-center justify-between">
+        <div className="p-4 md:p-6 bg-[#131629] border-t border-white/5 space-y-4 shrink-0 z-20">
+            <div className="hidden md:flex items-center justify-between">
                 <p className="text-gray-400 text-sm line-clamp-1 italic max-w-2xl">
                     <span className="text-cyan-600 font-mono mr-2">PROMPT_LOG:</span>
                     "{prompt}"
                 </p>
             </div>
             
-            <div className="flex flex-wrap gap-3 justify-end items-center">
+            <div className="flex flex-wrap gap-2 md:gap-3 justify-between md:justify-end items-center">
                 
                 {/* Neural Link Button */}
                 {!isVideo && (
@@ -365,46 +379,19 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                         `}
                     >
                         <Terminal size={14} /> 
-                        {backstories[currentImage.id] ? 'View Log' : 'Neural Link'}
+                        <span className="hidden sm:inline">{backstories[currentImage.id] ? 'View Log' : 'Neural Link'}</span>
+                        <span className="sm:hidden">Lore</span>
                     </button>
                 )}
-
-                <div className="flex items-center gap-1 mr-2 border-r border-white/10 pr-3">
-                    <button 
-                        onClick={() => handleFeedback('up')}
-                        disabled={isUpscaling}
-                        className={`p-2 rounded-lg transition-all ${feedbackMap[currentImage.id] === 'up' ? 'bg-green-500/20 text-green-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                    >
-                        <ThumbsUp size={16} className={feedbackMap[currentImage.id] === 'up' ? 'fill-current' : ''} />
-                    </button>
-                    <button 
-                        onClick={() => handleFeedback('down')}
-                        disabled={isUpscaling}
-                        className={`p-2 rounded-lg transition-all ${feedbackMap[currentImage.id] === 'down' ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                    >
-                        <ThumbsDown size={16} className={feedbackMap[currentImage.id] === 'down' ? 'fill-current' : ''} />
-                    </button>
-                </div>
 
                 {!isVideo && onEdit && (
                      <button 
                         onClick={handleEdit}
                         disabled={isUpscaling}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-purple-500/30 rounded-lg text-sm font-medium transition-all text-purple-200 disabled:opacity-50"
+                        className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-purple-500/30 rounded-lg text-sm font-medium transition-all text-purple-200 disabled:opacity-50"
                     >
                         <Edit2 size={16} />
                         Edit
-                    </button>
-                )}
-
-                {!isVideo && onVariations && (
-                    <button 
-                        onClick={handleVariations}
-                        disabled={isUpscaling}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-cyan-500/30 rounded-lg text-sm font-medium transition-all text-cyan-200 disabled:opacity-50"
-                    >
-                        <Layers size={16} />
-                        Variations
                     </button>
                 )}
 
@@ -412,19 +399,17 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                 <button 
                     onClick={handleUpscaleCurrent}
                     disabled={isUpscaling}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/50 hover:border-amber-400 text-amber-200 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/50 hover:border-amber-400 text-amber-200 rounded-lg text-xs md:text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
                     <Sparkles size={16} className="group-hover:scale-110 transition-transform" />
-                    Upscale 4K
+                    Upscale
                 </button>
                 )}
-
-                <div className="w-px h-8 bg-white/10 mx-2 hidden sm:block"></div>
 
                 <button 
                     onClick={handleSaveCurrent}
                     disabled={isUpscaling || isSavedMap[currentImage.id]}
-                    className={`flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''} ${isSavedMap[currentImage.id] ? 'text-green-400 border-green-500/30' : ''}`}
+                    className={`flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs md:text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''} ${isSavedMap[currentImage.id] ? 'text-green-400 border-green-500/30' : ''}`}
                 >
                     <Bookmark size={16} fill={isSavedMap[currentImage.id] ? "currentColor" : "none"} />
                     {isSavedMap[currentImage.id] ? 'Saved' : 'Save'}
@@ -433,33 +418,43 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                 <a 
                   href={currentImage.url} 
                   download={`generated-art-${Date.now()}.${isVideo ? 'mp4' : 'png'}`}
-                  className={`flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''}`}
+                  className={`flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs md:text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''}`}
                 >
                     <Download size={16} />
-                    Download
+                    <span className="hidden sm:inline">Download</span>
                 </a>
                 
-                {onShare && (
-                <button 
-                    onClick={handleShare}
-                    className={`flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''}`}
-                >
-                    <Share2 size={16} />
-                    Share
-                </button>
-                )}
-
                 <button 
                     onClick={onClose}
                     disabled={isUpscaling}
-                    className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 rounded-lg text-sm font-bold text-white shadow-lg shadow-purple-900/30 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+                    className="flex items-center gap-2 px-4 md:px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 rounded-lg text-xs md:text-sm font-bold text-white shadow-lg shadow-purple-900/30 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
                 >
-                    Generate Another
+                    New
                 </button>
             </div>
         </div>
       </div>
+
+      {/* Fullscreen Overlay */}
+      {isFullscreen && (
+          <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center p-0 animate-in fade-in zoom-in duration-200">
+              <button 
+                  onClick={() => setIsFullscreen(false)}
+                  className="absolute top-6 right-6 p-4 rounded-full bg-black/50 text-white hover:bg-white/20 z-50 backdrop-blur-md border border-white/10"
+              >
+                  <X size={28} />
+              </button>
+              <img 
+                  src={currentImage.url} 
+                  className="max-w-full max-h-full object-contain"
+                  alt="Fullscreen View"
+                  onClick={() => setIsFullscreen(false)} // Click image to close
+              />
+          </div>
+      )}
+
     </div>
+    </>
   );
 };
 
