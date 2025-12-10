@@ -554,6 +554,26 @@ const PromptInput: React.FC<PromptInputProps> = ({
                  </button>
               </div>
 
+              {isMain && onEnhance && (
+                <button 
+                 onClick={() => {
+                     playClick(1000);
+                     onEnhance();
+                 }}
+                 disabled={isEnhancing}
+                 className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border relative overflow-hidden group/enhance
+                    ${isLight 
+                       ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' 
+                       : 'bg-purple-500/10 text-purple-300 border-purple-500/20 hover:bg-purple-500/20'}
+                 `}
+                 title="Enhance Prompt with AI"
+               >
+                 <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 translate-x-[-150%] group-hover/enhance:animate-[shimmer_1.5s_infinite] ${isEnhancing ? 'animate-[shimmer_1s_infinite]' : ''}`} />
+                 <Sparkles size={14} className={isEnhancing ? "animate-spin" : ""} /> 
+                 <span className="hidden sm:inline">{isEnhancing ? 'Enhancing...' : 'Magic'}</span>
+               </button>
+             )}
+
               {/* Style Selector (Stylenator) */}
               {onStyleChange && mode === 'image' && (
                   <div className="relative w-full" ref={styleMenuRef}>
@@ -643,26 +663,6 @@ const PromptInput: React.FC<PromptInputProps> = ({
                   </div>
               )}
             </>
-          )}
-
-          {isMain && onEnhance && (
-             <button 
-              onClick={() => {
-                  playClick(1000);
-                  onEnhance();
-              }}
-              disabled={isEnhancing}
-              className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border relative overflow-hidden group/enhance
-                 ${isLight 
-                    ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' 
-                    : 'bg-purple-500/10 text-purple-300 border-purple-500/20 hover:bg-purple-500/20'}
-              `}
-              title="Enhance Prompt with AI"
-            >
-              <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 translate-x-[-150%] group-hover/enhance:animate-[shimmer_1.5s_infinite] ${isEnhancing ? 'animate-[shimmer_1s_infinite]' : ''}`} />
-              <Sparkles size={14} className={isEnhancing ? "animate-spin" : ""} /> 
-              <span className="hidden sm:inline">{isEnhancing ? 'Enhancing...' : 'Magic'}</span>
-            </button>
           )}
 
           {isMain && (

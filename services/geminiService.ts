@@ -117,6 +117,28 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
 };
 
 export const detectStyleFromPrompt = async (prompt: string, availableStyles: string[]): Promise<string> => {
+    // 1. REFLEX LAYER (Local Optimization)
+    // If the user explicitly names a style, snap to it immediately.
+    // This saves an API call and makes the UI feel instant.
+    const lowerPrompt = prompt.toLowerCase();
+    
+    // Check for exact style names or strong keywords
+    // We sort by length descending to match "Dark Fantasy" before just "Fantasy"
+    const sortedStyles = [...availableStyles].sort((a, b) => b.length - a.length);
+
+    for (const style of sortedStyles) {
+        // specific mapping for common variations
+        const keywords = [style.toLowerCase()];
+        if (style === 'Photorealistic') keywords.push('photoreal', 'realistic', 'photo', '4k');
+        if (style === 'Isometric 3D') keywords.push('isometric');
+        if (style === 'Origami Paper Art') keywords.push('origami', 'paper');
+        if (style === '3D Render') keywords.push('3d', 'blender', 'unreal');
+        
+        if (keywords.some(k => lowerPrompt.includes(k))) {
+            return style;
+        }
+    }
+
     const ai = getClient();
     const model = 'gemini-3-pro-preview';
 
@@ -249,9 +271,6 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
     // Construct the final prompt
     let finalPrompt = prompt;
     
-    // For Imagen, we can use the aspect ratio config directly. 
-    // For Gemini Flash/Pro, we might need to append it to the prompt if strict sizing isn't supported via config API yet (though ImageConfig supports it).
-    
     try {
         if (model === ModelType.IMAGEN_4) {
             // IMAGEN 4 LOGIC
@@ -279,11 +298,11 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
             // Build content parts
             const parts: any[] = [{ text: finalPrompt }];
             
-            // Note: Negative prompt is not strictly supported in generateContent for Gemini yet in the same way as SD, 
-            // but we can append it to the text prompt for better adherence.
             if (negativePrompt) {
                 parts[0].text += `\n\n(Negative prompt / Avoid: ${negativePrompt})`;
             }
+
+            console.log(`[Gemini] Generating image with model: ${model}, ratio: ${aspectRatio}, size: ${isPro ? imageSize : 'Default'}`);
 
             const response = await ai.models.generateContent({
                 model: model,
@@ -298,19 +317,37 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
                 }
             });
 
+            console.log("[Gemini] Response:", response);
+
             // Parse response for image
             if (response.candidates && response.candidates.length > 0) {
-                 const content = response.candidates[0].content;
-                 if (content.parts) {
+                 const candidate = response.candidates[0];
+                 
+                 // 1. Check for Safety Stop
+                 if (candidate.finishReason === 'SAFETY') {
+                     throw new Error("Generation blocked by safety filters. Please modify your prompt to be less explicit or violent.");
+                 }
+                 
+                 // 2. Check content parts
+                 const content = candidate.content;
+                 if (content?.parts) {
                      for (const part of content.parts) {
-                         if (part.inlineData) {
+                         if (part.inlineData && part.inlineData.data) {
                              return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
                          }
+                     }
+                     
+                     // 3. Check for text refusal (e.g. "I cannot generate images of...")
+                     const textPart = content.parts.find(p => p.text);
+                     if (textPart && textPart.text) {
+                         // Clean up the error message length
+                         const cleanError = textPart.text.length > 150 ? textPart.text.substring(0, 150) + "..." : textPart.text;
+                         throw new Error(`Model Refusal: ${cleanError}`);
                      }
                  }
             }
             
-            throw new Error("Gemini generation failed: No image data found in response.");
+            throw new Error("Gemini generation failed: No valid image data found in response.");
         }
     } catch (error) {
         console.error("Image Generation Error:", error);
