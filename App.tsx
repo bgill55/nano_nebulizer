@@ -414,9 +414,16 @@ const App: React.FC = () => {
     setNotification(null);
 
     try {
-        let enhancedPrompt = config.prompt;
-        if (config.style !== 'None' && config.prompt.trim()) {
-            enhancedPrompt = `${config.style} style: ${config.prompt}`;
+        // Use properties from the source image if available, falling back to current config
+        const promptToUse = sourceImage.prompt || config.prompt;
+        const styleToUse = sourceImage.style || config.style;
+        const modelToUse = sourceImage.model || config.model;
+        const ratioToUse = sourceImage.aspectRatio || config.aspectRatio;
+        const negToUse = sourceImage.negativePrompt || config.negativePrompt;
+
+        let enhancedPrompt = promptToUse;
+        if (styleToUse && styleToUse !== 'None' && promptToUse.trim()) {
+            enhancedPrompt = `${styleToUse} style: ${promptToUse}`;
         }
         
         const baseSeed = sourceImage.seed + 1000; 
@@ -424,23 +431,31 @@ const App: React.FC = () => {
 
         const batchPromises = Array.from({ length: variationBatchSize }).map(async (_, index) => {
             const effectiveSeed = baseSeed + index;
-            const url = await generateImage({
-                ...config,
+            
+            // Construct config for this specific generation
+            const genConfig: AppConfig = {
+                ...config, // base defaults
                 prompt: enhancedPrompt,
+                model: modelToUse,
+                aspectRatio: ratioToUse,
+                style: styleToUse,
+                negativePrompt: negToUse,
                 seed: effectiveSeed
-            });
+            };
+
+            const url = await generateImage(genConfig);
 
             return {
                 id: generateUUID(),
                 url,
                 type: 'image',
-                prompt: config.prompt,
+                prompt: promptToUse,
                 timestamp: Date.now(),
-                style: config.style,
-                aspectRatio: config.aspectRatio,
-                model: config.model,
+                style: styleToUse,
+                aspectRatio: ratioToUse,
+                model: modelToUse,
                 seed: effectiveSeed,
-                negativePrompt: config.negativePrompt
+                negativePrompt: negToUse
             } as GeneratedImage;
         });
 

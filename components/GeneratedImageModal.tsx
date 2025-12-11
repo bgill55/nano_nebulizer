@@ -441,6 +441,18 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                     </button>
                 )}
 
+                {!isVideo && onVariations && (
+                     <button 
+                        onClick={handleVariations}
+                        disabled={isUpscaling}
+                        className="flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-purple-500/30 rounded-lg text-sm font-medium transition-all text-purple-200 disabled:opacity-50 group"
+                        title="Generate Variations (Remix)"
+                    >
+                        <Layers size={16} className="group-hover:rotate-12 transition-transform" />
+                        <span className="hidden sm:inline">Variations</span>
+                    </button>
+                )}
+
                 {!isVideo && (
                 <button 
                     onClick={handleUpscaleCurrent}
