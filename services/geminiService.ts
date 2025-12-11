@@ -92,6 +92,8 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
     const model = 'gemini-3-pro-preview';
 
     // Parse JSON if present before sending to enhancer
+    // If it's JSON, we want the LLM to explicitly translate it, not just enhance it.
+    let isJson = input.trim().startsWith('{');
     const cleanedInput = parseJsonPrompt(input);
 
     const systemContext = `You are a legendary AI Art Director and Prompt Engineer. 
@@ -101,21 +103,24 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
         ? `Integrate the "${style}" art style naturally into the description (e.g., "A breathtaking ${style} illustration of...").` 
         : "Choose the most visually striking aesthetic that fits the subject.";
 
+    const taskInstruction = isJson 
+        ? `TASK: The user has provided a JSON object containing detailed image specifications. Translate this structured data into a cohesive, flowing visual description.`
+        : `TASK: Rewrite the following Input Concept into a highly detailed, vivid, and cohesive image prompt.`;
+
     const promptText = `
     ${systemContext}
 
-    TASK:
-    Rewrite the following Input Concept into a highly detailed, vivid, and cohesive image prompt.
+    ${taskInstruction}
     
-    INPUT CONCEPT: "${cleanedInput}"
+    INPUT DATA: "${cleanedInput}"
     TARGET STYLE: "${style}"
 
     CRITICAL RULES:
     1. ${styleInstruction}
     2. VISUALS: Describe lighting (volumetric, cinematic, neon), texture (rough, polished, matte), and camera details (8k, depth of field, wide angle).
-    3. CONTENT: Expand on the subject's pose, expression, and environment.
+    3. CONTENT: Expand on the subject's pose, expression, and environment based on the input data.
     4. OUTPUT FORMAT: A single, flowing paragraph. Do NOT use bullet points. Do NOT use prefixes like "Prompt:" or "Anime style:".
-    5. LENGTH: approximately 50-75 words.
+    5. LENGTH: approximately 50-100 words.
     
     Generate the prompt now:
     `;
@@ -331,8 +336,26 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
     const ai = getClient();
     const { prompt, model, aspectRatio, style, negativePrompt, seed, imageSize } = config;
 
-    // 1. Flatten JSON if provided
-    let finalPrompt = parseJsonPrompt(prompt);
+    // 1. SMART PROMPT HANDLING
+    // If the input is JSON, we MUST convert it to a natural language description using the LLM first.
+    // Image models (especially Gemini 3 Image) struggle with raw structured data dumps.
+    // Text models (Gemini 3 Pro) excel at interpreting this data.
+    let finalPrompt = prompt;
+    
+    if (prompt.trim().startsWith('{')) {
+        console.log("JSON Input detected. Using Gemini Text Model to translate to Image Prompt...");
+        try {
+            // We use the same enhancePrompt function but it's now context-aware for JSON
+            finalPrompt = await enhancePrompt(prompt, style);
+            console.log("JSON Translated to:", finalPrompt);
+        } catch (e) {
+            console.warn("JSON Translation failed, falling back to flattener.", e);
+            finalPrompt = parseJsonPrompt(prompt);
+        }
+    } else {
+        // Normal text prompt, just clean it if needed
+        finalPrompt = parseJsonPrompt(prompt);
+    }
     
     try {
         if (model === ModelType.IMAGEN_4) {
@@ -438,8 +461,14 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
             
             throw new Error("Gemini generation failed: No valid image data found in response.");
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Image Generation Error:", error);
+        
+        // Handle Service Worker / Network Timeouts explicitly
+        if (error.name === 'AbortError' || error.message.includes('aborted') || error.message.includes('ServiceWorker')) {
+             throw new Error("Connection Timeout: The high-fidelity model took too long. Please try the 'Gemini Flash' model or simplify your prompt.");
+        }
+        
         throw error;
     }
 };
