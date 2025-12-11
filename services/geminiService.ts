@@ -22,29 +22,65 @@ const getClient = () => {
 // Helper to flatten JSON prompts into descriptive text
 const parseJsonPrompt = (input: string): string => {
     try {
+        const trimmed = input.trim();
         // rapid check if it looks like JSON to avoid parsing everything
-        if (!input.trim().startsWith('{')) return input;
+        if (!trimmed.startsWith('{')) return input;
 
-        const parsed = JSON.parse(input);
+        const parsed = JSON.parse(trimmed);
         
-        // If it's a simple object, convert keys and values to a description
-        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-            const descriptionParts = Object.entries(parsed).map(([key, value]) => {
-                // Ignore empty values
-                if (!value) return null;
-                // If the key is generic like "prompt" or "text", just use the value
-                if (['prompt', 'text', 'description', 'image'].includes(key.toLowerCase())) {
-                    return `${value}`;
-                }
-                // Otherwise format as "Key: Value"
-                return `${key}: ${value}`;
-            }).filter(Boolean);
+        // RECURSIVE FLATTENER: Handles nested objects and arrays
+        const flattenObject = (obj: any, prefix = ''): string[] => {
+            let parts: string[] = [];
             
-            return descriptionParts.join(', ');
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    const value = obj[key];
+                    const cleanKey = key.replace(/_/g, ' '); // Turn "composition_rules" into "composition rules"
+
+                    // Skip metadata/technical fields that don't help the visual generation much
+                    if (['confidence_score', 'metadata', 'technical_specs', 'id'].includes(key.toLowerCase())) {
+                        continue;
+                    }
+
+                    if (typeof value === 'string') {
+                        // If the key is generic, just use value. If specific, use Key: Value
+                        if (['prompt', 'text', 'description', 'content', 'value'].includes(key.toLowerCase())) {
+                            parts.push(value);
+                        } else {
+                            parts.push(`${cleanKey}: ${value}`);
+                        }
+                    } else if (typeof value === 'number' || typeof value === 'boolean') {
+                        parts.push(`${cleanKey}: ${value}`);
+                    } else if (Array.isArray(value)) {
+                        // Join arrays naturally
+                        const arrayContent = value.map(v => {
+                            if (typeof v === 'object') return flattenObject(v).join(', ');
+                            return v;
+                        }).join(', ');
+                        if (arrayContent) parts.push(`${cleanKey}: ${arrayContent}`);
+                    } else if (typeof value === 'object' && value !== null) {
+                        // Recursively flatten nested objects
+                        const nested = flattenObject(value);
+                        if (nested.length > 0) {
+                            parts.push(...nested);
+                        }
+                    }
+                }
+            }
+            return parts;
+        };
+
+        const descriptiveParts = flattenObject(parsed);
+        
+        // If parsing resulted in valid parts, join them. Otherwise return original.
+        if (descriptiveParts.length > 0) {
+            console.log("JSON Prompt Detected. Flattened to:", descriptiveParts.join(', '));
+            return descriptiveParts.join(', ');
         }
+        
         return input;
     } catch (e) {
-        // Not valid JSON, return original input
+        // Not valid JSON or parsing failed, return original input
         return input;
     }
 };
@@ -55,8 +91,11 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
     // UPGRADE: Using Gemini 3.0 Pro for superior prompt understanding and creative expansion
     const model = 'gemini-3-pro-preview';
 
+    // Parse JSON if present before sending to enhancer
+    const cleanedInput = parseJsonPrompt(input);
+
     const systemContext = `You are a legendary AI Art Director and Prompt Engineer. 
-    Your goal is to transform simple user ideas into "Hall of Fame" worthy image generation prompts.`;
+    Your goal is to transform user ideas (which may be raw text or structured data) into "Hall of Fame" worthy image generation prompts.`;
     
     const styleInstruction = style && style !== 'None' 
         ? `Integrate the "${style}" art style naturally into the description (e.g., "A breathtaking ${style} illustration of...").` 
@@ -68,7 +107,7 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
     TASK:
     Rewrite the following Input Concept into a highly detailed, vivid, and cohesive image prompt.
     
-    INPUT CONCEPT: "${input}"
+    INPUT CONCEPT: "${cleanedInput}"
     TARGET STYLE: "${style}"
 
     CRITICAL RULES:
@@ -127,11 +166,11 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
         
         // If empty, just return the input rather than throwing an error
         console.warn("Enhancer returned empty text, using original.");
-        return input;
+        return cleanedInput;
     } catch (error) {
         console.error("Prompt Enhancement Failed:", error);
         // Graceful fallback
-        return input; 
+        return cleanedInput; 
     }
 };
 
@@ -139,7 +178,7 @@ export const detectStyleFromPrompt = async (prompt: string, availableStyles: str
     // 1. REFLEX LAYER (Local Optimization)
     // If the user explicitly names a style, snap to it immediately.
     // This saves an API call and makes the UI feel instant.
-    const lowerPrompt = prompt.toLowerCase();
+    const lowerPrompt = parseJsonPrompt(prompt).toLowerCase();
     
     // Check for exact style names or strong keywords
     // We sort by length descending to match "Dark Fantasy" before just "Fantasy"
@@ -167,7 +206,7 @@ export const detectStyleFromPrompt = async (prompt: string, availableStyles: str
     const instruction = `
     Analyze the following image description and select the BEST matching art style from the provided list.
     
-    Description: "${prompt}"
+    Description: "${lowerPrompt}"
     
     Available Styles: [${stylesList}, None]
     
@@ -204,10 +243,15 @@ export const generateBackstory = async (imageBase64: string, prompt: string): Pr
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
     const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
 
+    // Parse the prompt if it's JSON to give the backstory generator context
+    const contextPrompt = parseJsonPrompt(prompt);
+
     const instructions = `
     Analyze this image. 
     Write a short, immersive, sci-fi or fantasy "Lore Entry" (approx 50 words) describing the subject as if it were a real entity or location in a fictional universe.
     
+    Context: ${contextPrompt}
+
     Style: Mysterious, cinematic, and "data-log" style.
     Start with a designation or location name (e.g. "Subject: X-99" or "Location: Sector 4").
     Do not mention that it is an AI image. Treat it as real.
@@ -287,8 +331,8 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
     const ai = getClient();
     const { prompt, model, aspectRatio, style, negativePrompt, seed, imageSize } = config;
 
-    // Construct the final prompt
-    let finalPrompt = prompt;
+    // 1. Flatten JSON if provided
+    let finalPrompt = parseJsonPrompt(prompt);
     
     try {
         if (model === ModelType.IMAGEN_4) {
@@ -458,6 +502,9 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
 
     // Use Veo model
     const model = ModelType.VEO_FAST;
+    
+    // Parse JSON for Video Prompts
+    const finalPrompt = parseJsonPrompt(prompt);
 
     // Validate Aspect Ratio for Veo (must be 16:9 or 9:16)
     if (aspectRatio !== '16:9' && aspectRatio !== '9:16') {
@@ -474,7 +521,7 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
 
             operation = await ai.models.generateVideos({
                 model: model,
-                prompt: prompt || "Animate this image", // Prompt is optional but recommended
+                prompt: finalPrompt || "Animate this image", // Prompt is optional but recommended
                 image: {
                     imageBytes: base64Data,
                     mimeType: mimeType
@@ -490,7 +537,7 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
             // Text-to-Video
             operation = await ai.models.generateVideos({
                 model: model,
-                prompt: prompt,
+                prompt: finalPrompt,
                 config: {
                     numberOfVideos: 1,
                     resolution: '720p',
