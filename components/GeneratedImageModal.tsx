@@ -377,10 +377,10 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                                 ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' 
                                 : 'bg-transparent text-gray-400 border-white/5 hover:border-cyan-500/30 hover:text-cyan-300'}
                         `}
+                        title="Neural Link / Backstory"
                     >
                         <Terminal size={14} /> 
                         <span className="hidden sm:inline">{backstories[currentImage.id] ? 'View Log' : 'Neural Link'}</span>
-                        <span className="sm:hidden">Lore</span>
                     </button>
                 )}
 
@@ -388,10 +388,11 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                      <button 
                         onClick={handleEdit}
                         disabled={isUpscaling}
-                        className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-purple-500/30 rounded-lg text-sm font-medium transition-all text-purple-200 disabled:opacity-50"
+                        className="flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-purple-500/30 rounded-lg text-sm font-medium transition-all text-purple-200 disabled:opacity-50"
+                        title="Edit as Input"
                     >
                         <Edit2 size={16} />
-                        Edit
+                        <span className="hidden sm:inline">Edit</span>
                     </button>
                 )}
 
@@ -400,9 +401,10 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                     onClick={handleUpscaleCurrent}
                     disabled={isUpscaling}
                     className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/50 hover:border-amber-400 text-amber-200 rounded-lg text-xs md:text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                    title="Upscale"
                 >
                     <Sparkles size={16} className="group-hover:scale-110 transition-transform" />
-                    Upscale
+                    <span className="hidden sm:inline">Upscale</span>
                 </button>
                 )}
 
@@ -410,15 +412,17 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                     onClick={handleSaveCurrent}
                     disabled={isUpscaling || isSavedMap[currentImage.id]}
                     className={`flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs md:text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''} ${isSavedMap[currentImage.id] ? 'text-green-400 border-green-500/30' : ''}`}
+                    title="Save to Gallery"
                 >
                     <Bookmark size={16} fill={isSavedMap[currentImage.id] ? "currentColor" : "none"} />
-                    {isSavedMap[currentImage.id] ? 'Saved' : 'Save'}
+                    <span className="hidden sm:inline">{isSavedMap[currentImage.id] ? 'Saved' : 'Save'}</span>
                 </button>
 
                 <a 
                   href={currentImage.url} 
                   download={`generated-art-${Date.now()}.${isVideo ? 'mp4' : 'png'}`}
                   className={`flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs md:text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''}`}
+                  title="Download File"
                 >
                     <Download size={16} />
                     <span className="hidden sm:inline">Download</span>

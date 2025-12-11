@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppConfig, ModelType, AppTheme, GenerationMode } from '../types';
 import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon } from 'lucide-react';
@@ -369,8 +370,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg' 
                     : (isLight ? 'text-slate-500 hover:bg-slate-50' : 'text-gray-400 hover:bg-white/5')}
             `}
+            title="Image Generator"
           >
-             <ImageIcon size={18} /> Image Generator
+             <ImageIcon size={18} /> 
+             <span className="hidden sm:inline">Image Generator</span>
+             <span className="sm:hidden">Image</span>
           </button>
           <button
             onClick={() => handleModeChange('video')}
@@ -379,9 +383,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                     ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg' 
                     : (isLight ? 'text-slate-500 hover:bg-slate-50' : 'text-gray-400 hover:bg-white/5')}
             `}
+            title="Text-to-Video"
           >
              {config.mode === 'video' && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
-             <Video size={18} /> Text-to-Video (Veo)
+             <Video size={18} /> 
+             <span className="hidden sm:inline">Text-to-Video (Veo)</span>
+             <span className="sm:hidden">Video</span>
           </button>
       </div>
 
@@ -397,9 +404,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                         ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.1)]') 
                         : (isLight ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5')}
                 `}
+                title="Styles"
             >
                 <Palette size={16} />
-                <span>Styles</span>
+                <span className="hidden sm:inline">Styles</span>
             </button>
         )}
         <button
@@ -409,9 +417,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                     ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(168,85,247,0.1)]') 
                     : (isLight ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5')}
             `}
+            title="Model"
         >
             <Cpu size={16} />
-            <span>Model & Format</span>
+            <span className="hidden sm:inline">Model & Format</span>
+            <span className="sm:hidden">Model</span>
         </button>
         <button
             onClick={() => { playClick(800); setActiveTab('advanced'); }}
@@ -420,9 +430,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                     ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(236,72,153,0.1)]') 
                     : (isLight ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5')}
             `}
+            title="Advanced"
         >
             <Sliders size={16} />
-            <span>Advanced Settings</span>
+            <span className="hidden sm:inline">Advanced Settings</span>
+            <span className="sm:hidden">Advanced</span>
         </button>
       </div>
 

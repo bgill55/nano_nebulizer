@@ -37,6 +37,36 @@ const LOADING_PHASES = [
   { p: 95, text: "Final Polish..." },
 ];
 
+const VIDEO_PROMPTS = [
+    // Cinematic & Drone
+    "Cinematic drone shot flying over a futuristic cyberpunk city at night, neon lights reflecting on wet pavement, 4k resolution.",
+    "Aerial view of a jagged coastline with crashing waves, slow motion, moody overcast sky.",
+    "A camera flying through a dense jungle, revealing a hidden ancient stone temple, sunlight streaming through leaves.",
+    "FPV drone shot racing through a narrow canyon, speed lines, motion blur, high adrenaline.",
+    "Wide shot of a spaceship landing on a dusty red planet, thrusters kicking up dust clouds, cinematic lighting.",
+    
+    // Nature & Animals
+    "A majestic lion running across the African savanna during golden hour, dust kicking up, slow motion.",
+    "Time-lapse of a flower blooming, vibrant colors, soft lighting, macro perspective, 4k.",
+    "Underwater footage of a coral reef with colorful fish swimming, sun rays penetrating the water.",
+    "A cute red panda eating bamboo in a lush green bamboo forest, sunlight filtering through leaves, wildlife documentary style.",
+    "A wolf howling at a giant full moon, silhouette against the night sky, wind blowing through fur.",
+
+    // Action & Motion
+    "A cyberpunk samurai drawing their katana in the rain, neon reflections on the blade, slow motion.",
+    "A futuristic car driving fast through a tunnel of light, motion blur, synthwave aesthetic.",
+    "A robot hand assembling a mechanical watch, sparks flying, high detail macro, precise movements.",
+    "A chef chopping vegetables rapidly in a professional kitchen, steam rising from pots, dynamic camera angle.",
+    "An astronaut floating in zero gravity inside a spaceship corridor, spinning slowly, intricate sci-fi details.",
+
+    // Abstract & FX
+    "A liquid gold simulation pouring over a black sphere, splashing and flowing, abstract 3d render style.",
+    "A storm brewing over the ocean, dark clouds swirling, lightning strikes, cinematic visual effects.",
+    "A retro 80s vaporwave grid landscape moving forward endlessly, purple sun setting, synthwave vibe.",
+    "Close-up of a human eye blinking, with a galaxy reflection in the iris, macro shot.",
+    "Explosion of colorful powder paint in slow motion against a black background, 4k resolution."
+];
+
 const SURPRISE_PROMPTS = [
     // Sci-Fi & Cyberpunk
     "A futuristic city built inside a giant glass dome on Mars, bioluminescent plants, neon lights, 8k resolution, cinematic lighting.",
@@ -313,6 +343,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
       setIsRolling(true);
       playClick(1500);
 
+      const promptPool = mode === 'video' ? VIDEO_PROMPTS : SURPRISE_PROMPTS;
       let rolls = 0;
       const maxRolls = 12;
       const baseInterval = 50;
@@ -321,14 +352,14 @@ const PromptInput: React.FC<PromptInputProps> = ({
       const shuffle = () => {
         if (rolls >= maxRolls) {
             // Final pick
-            const randomPrompt = SURPRISE_PROMPTS[Math.floor(Math.random() * SURPRISE_PROMPTS.length)];
+            const randomPrompt = promptPool[Math.floor(Math.random() * promptPool.length)];
             onChange(randomPrompt);
             setIsRolling(false);
             playSuccess(); 
             return;
         }
 
-        const tempPrompt = SURPRISE_PROMPTS[Math.floor(Math.random() * SURPRISE_PROMPTS.length)];
+        const tempPrompt = promptPool[Math.floor(Math.random() * promptPool.length)];
         onChange(tempPrompt);
         playHover(); // Tick sound
         
