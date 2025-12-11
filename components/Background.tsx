@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { AppTheme } from '../types';
 
@@ -177,6 +176,8 @@ const Background: React.FC<BackgroundProps> = ({ theme, isGenerating = false }) 
       particles.push(new Particle());
     }
 
+    let animationFrameId: number;
+
     const animate = () => {
       ctx.clearRect(0, 0, width, height);
       
@@ -223,10 +224,10 @@ const Background: React.FC<BackgroundProps> = ({ theme, isGenerating = false }) 
           });
       }
 
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     };
 
-    const animationId = requestAnimationFrame(animate);
+    animate();
 
     const handleResize = () => {
       width = canvas.width = window.innerWidth;
@@ -236,7 +237,7 @@ const Background: React.FC<BackgroundProps> = ({ theme, isGenerating = false }) 
     window.addEventListener('resize', handleResize);
     return () => {
         window.removeEventListener('resize', handleResize);
-        cancelAnimationFrame(animationId);
+        cancelAnimationFrame(animationFrameId);
     };
   }, [isLight]); // Re-run if theme changes, but not if isGenerating changes (handled by ref)
 

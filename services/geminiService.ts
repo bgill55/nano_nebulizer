@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { AppConfig, ModelType } from "../types";
 import { getStoredApiKey } from "./storageService";
@@ -90,6 +89,13 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
             config: {
                 temperature: 0.8, // High creativity
                 maxOutputTokens: 1000, // Plenty of space
+                // Relax safety settings to prevent false positives when describing artistic concepts
+                safetySettings: [
+                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                ]
             }
         });
         
@@ -118,10 +124,13 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
              return response.candidates[0].content.parts[0].text.trim();
         }
         
-        throw new Error("No text returned from enhancer.");
+        // If empty, just return the input rather than throwing an error
+        console.warn("Enhancer returned empty text, using original.");
+        return input;
     } catch (error) {
         console.error("Prompt Enhancement Failed:", error);
-        throw error; 
+        // Graceful fallback
+        return input; 
     }
 };
 
