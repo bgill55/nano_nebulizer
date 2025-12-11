@@ -7,6 +7,7 @@ const GALLERY_STORE_NAME = 'images';
 const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
 const API_KEY_STORAGE_KEY = 'nebula_api_key';
+const ONBOARDING_KEY = 'nebula_mission_briefing_seen';
 const MAX_GALLERY_ITEMS = 20;
 const MAX_HISTORY_ITEMS = 20;
 
@@ -23,6 +24,24 @@ export const generateUUID = (): string => {
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
+};
+
+// --- Onboarding Logic ---
+
+export const hasSeenOnboarding = (): boolean => {
+    try {
+        return localStorage.getItem(ONBOARDING_KEY) === 'true';
+    } catch (e) {
+        return false;
+    }
+};
+
+export const markOnboardingSeen = () => {
+    try {
+        localStorage.setItem(ONBOARDING_KEY, 'true');
+    } catch (e) {
+        console.error("Failed to save onboarding status", e);
+    }
 };
 
 // --- API Key Management (BYOK) ---

@@ -1,15 +1,16 @@
 
 import React from 'react';
-import { Settings, Image, Grid } from 'lucide-react';
+import { Settings, Image, Grid, HelpCircle } from 'lucide-react';
 import { AppTheme } from '../types';
 
 interface HeaderProps {
   onOpenGallery?: () => void;
   onOpenSettings?: () => void;
+  onOpenHelp?: () => void;
   theme?: AppTheme;
 }
 
-const Header: React.FC<HeaderProps> = ({ onOpenGallery, onOpenSettings, theme = 'Nebula Dark' }) => {
+const Header: React.FC<HeaderProps> = ({ onOpenGallery, onOpenSettings, onOpenHelp, theme = 'Nebula Dark' }) => {
   const isLight = theme === 'Starlight Light';
 
   return (
@@ -35,6 +36,18 @@ const Header: React.FC<HeaderProps> = ({ onOpenGallery, onOpenSettings, theme = 
       </div>
 
       <div className="flex items-center gap-2">
+        <button 
+            onClick={onOpenHelp}
+            className={`p-2 rounded-lg border transition-all
+            ${isLight
+                ? 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 hover:text-cyan-600'
+                : 'bg-white/5 border-white/10 hover:bg-white/10 text-gray-400 hover:text-cyan-400'}
+        `}
+            title="Mission Briefing / Help"
+        >
+            <HelpCircle size={18} />
+        </button>
+
         <button 
             onClick={onOpenSettings}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all

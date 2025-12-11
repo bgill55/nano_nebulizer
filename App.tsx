@@ -9,9 +9,10 @@ import GeneratedImageModal from './components/GeneratedImageModal';
 import GalleryModal from './components/GalleryModal';
 import TemplateModal from './components/TemplateModal';
 import SettingsModal from './components/SettingsModal';
+import OnboardingModal from './components/OnboardingModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
-import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey } from './services/storageService';
+import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen } from './services/storageService';
 import { playPowerUp, playSuccess, playError, playClick } from './services/audioService';
 import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut } from 'lucide-react';
 
@@ -53,6 +54,7 @@ const App: React.FC = () => {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState<GeneratedImage[]>([]);
 
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(false);
@@ -81,9 +83,27 @@ const App: React.FC = () => {
       
       const imgs = await getGallery();
       setGalleryImages(imgs);
+
+      // 4. Check Onboarding
+      if (!hasSeenOnboarding()) {
+          setTimeout(() => {
+              setIsOnboardingOpen(true);
+          }, 1000); // Slight delay for effect
+      }
     };
     init();
   }, []);
+
+  const handleCloseOnboarding = () => {
+      setIsOnboardingOpen(false);
+      markOnboardingSeen();
+      playSuccess();
+  };
+
+  const handleOpenHelp = () => {
+      playClick();
+      setIsOnboardingOpen(true);
+  };
 
   // Notification Timer
   useEffect(() => {
@@ -493,6 +513,7 @@ const App: React.FC = () => {
       <Header 
         onOpenSettings={() => setIsSettingsOpen(true)} 
         onOpenGallery={() => setIsGalleryOpen(true)}
+        onOpenHelp={handleOpenHelp}
         theme={config.theme}
       />
 
@@ -674,6 +695,12 @@ const App: React.FC = () => {
           theme={config.theme}
           onUpdateTheme={(theme) => updateConfig('theme', theme)}
           onManageApiKey={handleApiKeySelect}
+       />
+
+       <OnboardingModal
+           isOpen={isOnboardingOpen}
+           onClose={handleCloseOnboarding}
+           theme={config.theme}
        />
     </div>
   );
