@@ -1,8 +1,4 @@
-<div align="center">
-<img width="1200" height="475" alt="https://repository-images.githubusercontent.com/1105835465/5943bc98-baa9-4bf0-ba91-c97d2bf6e7c0" />
-</div>
-
-# Run and deploy your AI Studio app
+<img src="https://repository-images.githubusercontent.com/1105835465/5943bc98-baa9-4bf0-ba91-c97d2bf6e7c0" alt="https://repository-images.githubusercontent.com/1105835465/5943bc98-baa9-4bf0-ba91-c97d2bf6e7c0" class="transparent shrinkToFit" width="1083" height="578">
 
 This contains everything you need to run your app locally.
 
