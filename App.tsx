@@ -779,6 +779,7 @@ const App: React.FC = () => {
                             onChange={(val) => updateConfig('negativePrompt', val)}
                             onClear={() => updateConfig('negativePrompt', '')}
                             theme={config.theme}
+                            isNegative={true}
                         />
                         )}
                     </div>

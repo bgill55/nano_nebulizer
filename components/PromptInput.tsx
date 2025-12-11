@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check, BrainCircuit } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check, BrainCircuit, ShieldBan, Plus } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 import { playClick, playHover, playSuccess } from '../services/audioService';
 import { detectStyleFromPrompt } from '../services/geminiService';
@@ -25,6 +25,7 @@ interface PromptInputProps {
   isEnhancing?: boolean;
   currentStyle?: string;
   onStyleChange?: (style: string) => void;
+  isNegative?: boolean;
 }
 
 const LOADING_PHASES = [
@@ -144,6 +145,14 @@ const AVAILABLE_STYLES = [
     { label: 'Isometric', value: 'Isometric 3D', color: 'from-blue-500 to-cyan-500' },
 ];
 
+const NEGATIVE_PRESETS = [
+    { label: "Standard Quality", value: "blurry, low quality, pixelated, watermark, signature, text, jpeg artifacts, distortion, noise" },
+    { label: "Bad Anatomy", value: "bad anatomy, deformed, disfigured, extra limbs, missing limbs, bad hands, mutation, gross proportions, malformed, long neck" },
+    { label: "Not Photoreal", value: "cartoon, anime, sketch, drawing, painting, illustration, 3d render, cgi" },
+    { label: "Not 3D/CG", value: "photo, realistic, grain, photography, render, unreal engine" },
+    { label: "NSFW Filter", value: "nsfw, nude, naked, uncensored, violence, blood, gore, explicit" }
+];
+
 const PromptInput: React.FC<PromptInputProps> = ({ 
   label,
   placeholder, 
@@ -162,10 +171,12 @@ const PromptInput: React.FC<PromptInputProps> = ({
   onEnhance,
   isEnhancing = false,
   currentStyle = 'None',
-  onStyleChange
+  onStyleChange,
+  isNegative = false
 }) => {
   const isLight = theme === 'Starlight Light';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Progress Simulation State
   const [progress, setProgress] = useState(0);
@@ -180,7 +191,12 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement>(null);
   const [isStyleRolling, setIsStyleRolling] = useState(false);
-  const [isMatching, setIsMatching] = useState(false); // New Smart Match loading state
+  const [isMatching, setIsMatching] = useState(false); 
+
+  // Negative Menu State
+  const [showNegativeMenu, setShowNegativeMenu] = useState(false);
+  const negativeMenuRef = useRef<HTMLDivElement>(null);
+  const [isAdded, setIsAdded] = useState(false);
 
   // Randomizer State
   const [isRolling, setIsRolling] = useState(false);
@@ -283,7 +299,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
     return () => clearInterval(interval);
   }, [isLoading, mode]);
 
-  // Click outside listener for history and style menu
+  // Click outside listener
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
@@ -292,13 +308,16 @@ const PromptInput: React.FC<PromptInputProps> = ({
       if (styleMenuRef.current && !styleMenuRef.current.contains(event.target as Node)) {
         setShowStyleMenu(false);
       }
+      if (negativeMenuRef.current && !negativeMenuRef.current.contains(event.target as Node)) {
+        setShowNegativeMenu(false);
+      }
     };
 
-    if (showHistory || showStyleMenu) {
+    if (showHistory || showStyleMenu || showNegativeMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showHistory, showStyleMenu]);
+  }, [showHistory, showStyleMenu, showNegativeMenu]);
 
   const toggleHistory = () => {
     playClick(600);
@@ -307,12 +326,14 @@ const PromptInput: React.FC<PromptInputProps> = ({
     }
     setShowHistory(!showHistory);
     setShowStyleMenu(false);
+    setShowNegativeMenu(false);
   };
 
   const toggleStyleMenu = () => {
       playClick(700);
       setShowStyleMenu(!showStyleMenu);
       setShowHistory(false);
+      setShowNegativeMenu(false);
   };
 
   const handleSelectHistory = (prompt: string) => {
@@ -326,6 +347,39 @@ const PromptInput: React.FC<PromptInputProps> = ({
     playClick(500);
     clearPromptHistory();
     setHistoryItems([]);
+  };
+
+  const handleAddNegativePreset = (presetValue: string) => {
+      if (!onChange) return;
+      
+      const current = value.trim();
+      let newValue = presetValue;
+
+      // Don't duplicate if already exists roughly
+      if (current.includes(presetValue.substring(0, 10))) {
+          setShowNegativeMenu(false);
+          return;
+      }
+
+      if (current) {
+          const separator = current.endsWith(',') ? ' ' : ', ';
+          newValue = current + separator + presetValue;
+      }
+
+      onChange(newValue);
+      playClick(800);
+      setShowNegativeMenu(false);
+
+      // Trigger Visual Feedback
+      setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 500);
+
+      // Auto scroll to bottom to show appended text
+      setTimeout(() => {
+        if (textareaRef.current) {
+            textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+        }
+      }, 50);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -435,13 +489,16 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
   // Find active style object for display
   const activeStyleObj = AVAILABLE_STYLES.find(s => s.value === currentStyle);
+  const isMenuOpen = showHistory || showStyleMenu || showNegativeMenu;
 
   return (
-    <div className={`relative w-full rounded-2xl transition-all duration-300 p-1 group border z-20
+    <div className={`relative w-full rounded-2xl transition-all duration-300 p-1 group border
+        ${isMenuOpen ? 'z-40' : 'z-20'}
         ${isLight 
             ? 'bg-white/90 border-slate-200 shadow-sm focus-within:border-cyan-500/50 focus-within:shadow-[0_0_20px_rgba(6,182,212,0.1)]' 
             : 'bg-[#0f1225]/80 border-white/5 focus-within:border-purple-500/30'}
         ${isMain && !isLight ? 'focus-within:border-cyan-500/50 focus-within:shadow-[0_0_20px_rgba(6,182,212,0.15)]' : ''}
+        ${isAdded ? 'ring-2 ring-emerald-500/50' : ''}
     `}>
       
       {/* Glow effect container */}
@@ -473,6 +530,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
            )}
 
            <textarea
+            ref={textareaRef}
             className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[120px] transition-colors
               ${isLight ? 'text-slate-800 placeholder-slate-400' : 'text-gray-100 placeholder-gray-500'}
               ${inputImage ? 'pb-24' : ''} 
@@ -702,6 +760,56 @@ const PromptInput: React.FC<PromptInputProps> = ({
                   </div>
               )}
             </>
+          )}
+
+          {/* Negative Presets Button */}
+          {isNegative && (
+               <div className="relative w-full" ref={negativeMenuRef}>
+                 <button 
+                     onClick={() => setShowNegativeMenu(!showNegativeMenu)}
+                     className={`w-full min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border
+                         ${isLight 
+                             ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
+                             : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                         ${showNegativeMenu ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
+                     `}
+                     title="Add Negative Preset"
+                 >
+                     <ShieldBan size={14} /> <span className="hidden sm:inline">Presets</span>
+                 </button>
+
+                 {showNegativeMenu && (
+                    <div className={`absolute bottom-full right-0 mb-2 w-56 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-right
+                         ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
+                    `}>
+                         <div className={`p-3 border-b flex items-center justify-between
+                                  ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}
+                          `}>
+                              <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Quick Block</span>
+                              <button onClick={() => setShowNegativeMenu(false)} className="text-gray-400 hover:text-white">
+                                <X size={12} />
+                              </button>
+                          </div>
+                          <div className="p-2 space-y-1">
+                                {NEGATIVE_PRESETS.map((preset) => (
+                                    <button
+                                        key={preset.label}
+                                        onClick={() => handleAddNegativePreset(preset.value)}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-2 group
+                                              ${isLight ? 'hover:bg-slate-50 border-transparent hover:border-slate-100 text-slate-600' : 'hover:bg-white/5 border-transparent hover:border-white/5 text-gray-400 hover:text-gray-200'}
+                                        `}
+                                    >
+                                        <Plus size={10} className="opacity-50 group-hover:opacity-100" />
+                                        <div className="flex flex-col">
+                                            <span>{preset.label}</span>
+                                            <span className="text-[8px] opacity-50 truncate w-32">{preset.value}</span>
+                                        </div>
+                                    </button>
+                                ))}
+                          </div>
+                    </div>
+                 )}
+             </div>
           )}
 
           {isMain && (

@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Key, CheckCircle, Monitor, Terminal, Cpu, Network, Server, Globe, Shield, Database, AlertTriangle, Lock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Moon, Sun, Key, CheckCircle, Monitor, Terminal, Shield, AlertTriangle, Lock } from 'lucide-react';
 import { AppTheme } from '../types';
 import { getUsageStats, setDailyLimit, removeStoredApiKey, revokeAccess } from '../services/storageService';
 
@@ -25,16 +25,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   
   const isLight = theme === 'Starlight Light';
 
+  // Effect 1: Handle Opening & Stats Refresh (Runs once when opened)
   useEffect(() => {
     if (isOpen) {
-        // Refresh usage stats whenever opened
-        const stats = getUsageStats();
-        setUsageStats(stats);
+        try {
+            const stats = getUsageStats();
+            if (stats) {
+                setUsageStats(stats);
+            }
+        } catch (e) {
+            console.warn("Failed to load usage stats", e);
+        }
     }
+  }, [isOpen]);
 
+  // Effect 2: System Logs Animation (Runs only when System tab is active)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    
     if (isOpen && activeTab === 'system') {
-        setLogs([]);
+        setLogs([]); // Clear previous logs
         let step = 0;
+        
         const sequence = [
             "> Initializing Vertex AI Client...",
             "> Loading Project Configuration...",
@@ -49,17 +61,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             "> Ready for Input."
         ];
 
-        const interval = setInterval(() => {
+        interval = setInterval(() => {
             if (step < sequence.length) {
-                setLogs(prev => [...prev, sequence[step]]);
+                const line = sequence[step];
+                setLogs(prev => [...prev, line]);
                 step++;
             } else {
                 clearInterval(interval);
             }
         }, 150);
-
-        return () => clearInterval(interval);
     }
+
+    return () => {
+        if (interval) clearInterval(interval);
+    };
   }, [isOpen, activeTab]);
 
   const handleLimitChange = (val: number) => {
