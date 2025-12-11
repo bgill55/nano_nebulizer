@@ -8,7 +8,7 @@ const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
 const API_KEY_STORAGE_KEY = 'nebula_api_key';
 const ONBOARDING_KEY = 'nebula_mission_briefing_seen';
-const MAX_GALLERY_ITEMS = 20;
+const MAX_GALLERY_ITEMS = 50; // Increased from 20 to 50
 const MAX_HISTORY_ITEMS = 20;
 
 // --- Utility ---

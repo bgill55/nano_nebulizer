@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square, Maximize2 } from 'lucide-react';
+import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square, Maximize2, AlertCircle } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import HolographicCard from './HolographicCard';
 import { generateBackstory } from '../services/geminiService';
@@ -16,6 +16,7 @@ interface GeneratedImageModalProps {
   onVariations?: (image: GeneratedImage) => void;
   onEdit?: (image: GeneratedImage) => void;
   onShare?: (image: GeneratedImage) => void;
+  initiallySaved?: boolean;
 }
 
 const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({ 
@@ -27,10 +28,20 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   onSave,
   onVariations,
   onEdit,
-  onShare
+  onShare,
+  initiallySaved = false
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isSavedMap, setIsSavedMap] = useState<Record<string, boolean>>({});
+  
+  // Initialize map with all IDs if they are auto-saved
+  const [isSavedMap, setIsSavedMap] = useState<Record<string, boolean>>(() => {
+      const map: Record<string, boolean> = {};
+      if (initiallySaved) {
+          images.forEach(img => map[img.id] = true);
+      }
+      return map;
+  });
+
   const [feedbackMap, setFeedbackMap] = useState<Record<string, 'up' | 'down' | null>>({});
   
   // Backstory State
@@ -45,9 +56,26 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   // Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Video Error State
+  const [videoError, setVideoError] = useState(false);
+
+  // Update map if new images arrive (e.g. upscaled or variations)
   useEffect(() => {
-    // Reset reveal animation when image changes
+      if (initiallySaved) {
+          setIsSavedMap(prev => {
+              const next = { ...prev };
+              images.forEach(img => {
+                  if (next[img.id] === undefined) next[img.id] = true;
+              });
+              return next;
+          });
+      }
+  }, [images, initiallySaved]);
+
+  useEffect(() => {
+    // Reset reveal animation and error when image changes
     setIsRevealed(false);
+    setVideoError(false);
     const timer = setTimeout(() => setIsRevealed(true), 100);
     return () => clearTimeout(timer);
   }, [selectedIndex]);
@@ -82,6 +110,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   const isVideo = currentImage.type === 'video';
 
   const handleSaveCurrent = () => {
+    if (isSavedMap[currentImage.id]) return; // Already saved
     playClick();
     onSave(currentImage);
     setIsSavedMap(prev => ({ ...prev, [currentImage.id]: true }));
@@ -269,13 +298,29 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                     )}
 
                     {isVideo ? (
-                        <video 
-                            src={currentImage.url} 
-                            controls 
-                            autoPlay 
-                            loop
-                            className="max-h-full max-w-full rounded-lg shadow-2xl border border-white/10"
-                        />
+                         videoError ? (
+                            <div className="flex flex-col items-center justify-center p-8 text-center text-red-400 bg-red-500/10 rounded-xl border border-red-500/20 backdrop-blur-sm">
+                                <AlertCircle size={48} className="mb-4" />
+                                <p className="font-bold mb-2">Video Playback Failed</p>
+                                <p className="text-xs opacity-70 mb-4 max-w-md">The video file could not be loaded. It may be corrupted or in an unsupported format.</p>
+                                <a 
+                                    href={currentImage.url} 
+                                    download={`nebula-video-${Date.now()}.mp4`}
+                                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded text-xs font-mono uppercase tracking-wider transition-colors border border-red-500/30"
+                                >
+                                    Download Raw File
+                                </a>
+                            </div>
+                         ) : (
+                            <video 
+                                src={currentImage.url} 
+                                controls 
+                                autoPlay 
+                                loop
+                                className="max-h-full max-w-full rounded-lg shadow-2xl border border-white/10"
+                                onError={() => setVideoError(true)}
+                            />
+                         )
                     ) : (
                         <div onClick={() => setIsFullscreen(true)} className="cursor-zoom-in max-h-full max-w-full flex items-center justify-center">
                             <HolographicCard isActive={!isUpscaling}>
@@ -411,8 +456,11 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                 <button 
                     onClick={handleSaveCurrent}
                     disabled={isUpscaling || isSavedMap[currentImage.id]}
-                    className={`flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs md:text-sm font-medium transition-colors border border-white/5 ${isUpscaling ? 'pointer-events-none opacity-50' : ''} ${isSavedMap[currentImage.id] ? 'text-green-400 border-green-500/30' : ''}`}
-                    title="Save to Gallery"
+                    className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border border-white/5 
+                        ${isUpscaling ? 'pointer-events-none opacity-50' : ''} 
+                        ${isSavedMap[currentImage.id] ? 'bg-green-500/10 text-green-400 border-green-500/30 cursor-default' : 'bg-slate-800 hover:bg-slate-700'}
+                    `}
+                    title={isSavedMap[currentImage.id] ? "Already Saved" : "Save to Gallery"}
                 >
                     <Bookmark size={16} fill={isSavedMap[currentImage.id] ? "currentColor" : "none"} />
                     <span className="hidden sm:inline">{isSavedMap[currentImage.id] ? 'Saved' : 'Save'}</span>

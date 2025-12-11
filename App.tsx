@@ -255,7 +255,7 @@ const App: React.FC = () => {
         if (config.mode === 'video') {
              // VIDEO GENERATION
              const videoUrl = await generateVideo(config);
-             setGeneratedImages([{
+             const newVideo: GeneratedImage = {
                 id: generateUUID(),
                 url: videoUrl,
                 type: 'video',
@@ -264,7 +264,13 @@ const App: React.FC = () => {
                 aspectRatio: config.aspectRatio,
                 model: config.model,
                 negativePrompt: config.negativePrompt
-             }]);
+             };
+             
+             // Auto-save Video
+             const updatedGallery = await saveToGallery(newVideo);
+             setGalleryImages(updatedGallery);
+             
+             setGeneratedImages([newVideo]);
              playSuccess();
         } else {
              // IMAGE GENERATION
@@ -299,6 +305,14 @@ const App: React.FC = () => {
              });
        
              const results = await Promise.all(batchPromises);
+             
+             // Auto-save Images
+             let currentGallery = galleryImages;
+             for (const img of results) {
+                 currentGallery = await saveToGallery(img);
+             }
+             setGalleryImages(currentGallery);
+
              setGeneratedImages(results);
              playSuccess();
         }
@@ -361,6 +375,14 @@ const App: React.FC = () => {
         });
 
         const results = await Promise.all(batchPromises);
+        
+        // Auto-save Variations
+        let currentGallery = galleryImages;
+        for (const img of results) {
+            currentGallery = await saveToGallery(img);
+        }
+        setGalleryImages(currentGallery);
+        
         setGeneratedImages(results);
         playSuccess();
     } catch (err: any) {
@@ -373,6 +395,7 @@ const App: React.FC = () => {
   };
 
   const handleSaveToGallery = async (image: GeneratedImage) => {
+    // Only manual trigger if auto-save fails for some reason, but we handle logic here
     const updatedGallery = await saveToGallery(image);
     setGalleryImages(updatedGallery);
     showNotification("Saved to Gallery", 'success');
@@ -386,14 +409,27 @@ const App: React.FC = () => {
 
     try {
       const upscaledUrl = await upscaleImage(targetImage.url, config.aspectRatio);
+      
+      const newImage = { 
+          ...targetImage, 
+          url: upscaledUrl, 
+          id: generateUUID(),
+          prompt: targetImage.prompt + " (Upscaled)"
+      };
+
       setGeneratedImages(prev => {
           if (!prev) return null;
           return prev.map(img => 
               img.id === targetImage.id 
-              ? { ...img, url: upscaledUrl, id: generateUUID() } 
+              ? newImage
               : img
           );
       });
+      
+      // Auto-save Upscaled Result
+      const updated = await saveToGallery(newImage);
+      setGalleryImages(updated);
+
       playSuccess();
       showNotification("Image upscaled to 4K resolution.", 'success');
       
@@ -671,6 +707,7 @@ const App: React.FC = () => {
           onVariations={handleVariations}
           onEdit={handleEdit}
           onShare={handleShare}
+          initiallySaved={true} // AUTO-SAVED
         />
       )}
 

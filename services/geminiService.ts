@@ -508,6 +508,7 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
 
         if (operation.response?.generatedVideos?.[0]?.video?.uri) {
             const videoUri = operation.response.generatedVideos[0].video.uri;
+            
             // Fetch the actual video bytes using the API key
             // Note: getClient has logic to throw if key is missing, so we access process.env.API_KEY OR local storage logic
             // Since we are in the service, we can't easily reach getClient().apiKey if we didn't expose it.
@@ -516,7 +517,22 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
 
             if (!apiKey) throw new Error("API Key missing during video fetch");
 
-            const videoResponse = await fetch(`${videoUri}&key=${apiKey}`);
+            // Smart separator detection for append
+            const separator = videoUri.includes('?') ? '&' : '?';
+            const fetchUrl = `${videoUri}${separator}key=${apiKey}`;
+
+            const videoResponse = await fetch(fetchUrl);
+            
+            // CRITICAL FIX: Check if the response is valid (200 OK)
+            // If the key is invalid or url expired, this returns 400/403 with text body, not video blob.
+            if (!videoResponse.ok) {
+                let errorDetails = '';
+                try {
+                     errorDetails = await videoResponse.text();
+                } catch (e) {}
+                throw new Error(`Video generation successful, but download failed (${videoResponse.status}). ${errorDetails}`);
+            }
+
             const videoBlob = await videoResponse.blob();
             return URL.createObjectURL(videoBlob);
         }
