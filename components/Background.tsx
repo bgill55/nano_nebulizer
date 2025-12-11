@@ -26,19 +26,25 @@ const Background: React.FC<BackgroundProps> = ({ theme, isGenerating = false }) 
 
     let width = canvas.width = window.innerWidth;
     let height = canvas.height = window.innerHeight;
-    const centerX = width / 2;
-    const centerY = height / 2;
+    
+    // Ensure canvas size is correct on mount
+    const resizeObserver = new ResizeObserver(() => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    });
+    resizeObserver.observe(document.body);
 
     const particles: Particle[] = [];
-    const particleCount = Math.min(200, (width * height) / 8000); 
+    const particleCount = Math.min(200, (width * height) / 9000); 
 
     let mouseX = -1000;
     let mouseY = -1000;
 
-    window.addEventListener('mousemove', (e) => {
+    const handleMouseMove = (e: MouseEvent) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
-    });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
 
     class Particle {
       x: number;
@@ -235,11 +241,14 @@ const Background: React.FC<BackgroundProps> = ({ theme, isGenerating = false }) 
     };
 
     window.addEventListener('resize', handleResize);
+    
     return () => {
         window.removeEventListener('resize', handleResize);
+        window.removeEventListener('mousemove', handleMouseMove);
+        resizeObserver.disconnect();
         cancelAnimationFrame(animationFrameId);
     };
-  }, [isLight]); // Re-run if theme changes, but not if isGenerating changes (handled by ref)
+  }, [isLight]); 
 
   return (
     <canvas

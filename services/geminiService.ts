@@ -313,8 +313,9 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
             // GEMINI (NANO BANANA) LOGIC
             const isPro = model === ModelType.GEMINI_PRO_IMAGE;
             
-            // Build content parts
-            const parts: any[] = [{ text: finalPrompt }];
+            // Explicitly command the model to generate an image to avoid chatty refusals
+            const imagePrompt = `Generate a high-quality image of: ${finalPrompt}`;
+            const parts: any[] = [{ text: imagePrompt }];
             
             if (negativePrompt) {
                 parts[0].text += `\n\n(Negative prompt / Avoid: ${negativePrompt})`;
@@ -362,17 +363,28 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
                          }
                      }
                      
-                     // 3. Check for text refusal (e.g. "I cannot generate images of...")
+                     // 3. Check for text refusal or "Chatty Failure" (e.g. "Here is your image..." but no image data)
                      const textPart = content.parts.find(p => p.text);
                      if (textPart && textPart.text) {
                          const text = textPart.text;
-                         
-                         // Check if it's a false positive (model saying "Here is..." but failing)
-                         if (text.match(/Here('s| is) (your|the) image/i) || text.includes("generating the image")) {
-                             throw new Error("Gemini Glitch: The model claimed to generate an image but returned no data. Please try again.");
+                         const lowerText = text.toLowerCase();
+
+                         // Detect conversational success messages that mask a failure
+                         // Matches: "Here is", "Here's", "I have generated", "Absolutely", "Sure"
+                         const successPhrases = [
+                            /here('s| is)/i,
+                            /generated (an|the) image/i,
+                            /image (of|showing)/i,
+                            /sure/i,
+                            /absolutely/i,
+                            /okay/i
+                         ];
+
+                         if (successPhrases.some(regex => text.match(regex))) {
+                             throw new Error("Gemini Glitch: The model confirmed generation but failed to return image data. Please try again.");
                          }
 
-                         // Clean up the error message length
+                         // Clean up the error message length for display
                          const cleanError = text.length > 150 ? text.substring(0, 150) + "..." : text;
                          throw new Error(`Model Refusal: ${cleanError}`);
                      }
