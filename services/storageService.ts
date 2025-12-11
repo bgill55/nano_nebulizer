@@ -8,9 +8,18 @@ const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
 const API_KEY_STORAGE_KEY = 'nebula_api_key';
 const ONBOARDING_KEY = 'nebula_mission_briefing_seen';
-const ACCESS_GRANTED_KEY = 'nebula_system_access_granted'; // New key for access code
+const ACCESS_GRANTED_KEY = 'nebula_system_access_granted';
+const USAGE_STATS_KEY = 'nebula_usage_stats'; // New key for safety governor
+
 const MAX_GALLERY_ITEMS = 50; 
 const MAX_HISTORY_ITEMS = 20;
+const DEFAULT_DAILY_LIMIT = 50; // Default safety stop
+
+interface UsageStats {
+    date: string;
+    count: number;
+    limit: number;
+}
 
 // --- Utility ---
 
@@ -23,6 +32,49 @@ export const generateUUID = (): string => {
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
+};
+
+// --- Safety Governor (Usage Limits) ---
+
+export const getUsageStats = (): UsageStats => {
+    const today = new Date().toDateString();
+    try {
+        const stored = localStorage.getItem(USAGE_STATS_KEY);
+        if (stored) {
+            const stats: UsageStats = JSON.parse(stored);
+            // Reset if it's a new day
+            if (stats.date !== today) {
+                const newStats = { date: today, count: 0, limit: stats.limit || DEFAULT_DAILY_LIMIT };
+                localStorage.setItem(USAGE_STATS_KEY, JSON.stringify(newStats));
+                return newStats;
+            }
+            return stats;
+        }
+    } catch (e) {
+        // Ignore error
+    }
+    
+    // Initialize
+    const initial: UsageStats = { date: today, count: 0, limit: DEFAULT_DAILY_LIMIT };
+    localStorage.setItem(USAGE_STATS_KEY, JSON.stringify(initial));
+    return initial;
+};
+
+export const incrementUsage = () => {
+    const stats = getUsageStats();
+    stats.count += 1;
+    localStorage.setItem(USAGE_STATS_KEY, JSON.stringify(stats));
+};
+
+export const setDailyLimit = (limit: number) => {
+    const stats = getUsageStats();
+    stats.limit = limit;
+    localStorage.setItem(USAGE_STATS_KEY, JSON.stringify(stats));
+};
+
+export const isLimitReached = (): boolean => {
+    const stats = getUsageStats();
+    return stats.count >= stats.limit;
 };
 
 // --- Onboarding Logic ---

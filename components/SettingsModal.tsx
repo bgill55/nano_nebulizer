@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Key, CheckCircle, Monitor, Terminal, Cpu, Network, Server, Globe, Shield, Database } from 'lucide-react';
+import { X, Moon, Sun, Key, CheckCircle, Monitor, Terminal, Cpu, Network, Server, Globe, Shield, Database, AlertTriangle, Lock } from 'lucide-react';
 import { AppTheme } from '../types';
+import { getUsageStats, setDailyLimit, removeStoredApiKey, revokeAccess } from '../services/storageService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -18,12 +19,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateTheme,
   onManageApiKey
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'system' | 'architecture'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'safety' | 'system'>('general');
   const [logs, setLogs] = useState<string[]>([]);
+  const [usageStats, setUsageStats] = useState({ count: 0, limit: 50, date: '' });
   
   const isLight = theme === 'Starlight Light';
 
   useEffect(() => {
+    if (isOpen) {
+        // Refresh usage stats whenever opened
+        const stats = getUsageStats();
+        setUsageStats(stats);
+    }
+
     if (isOpen && activeTab === 'system') {
         setLogs([]);
         let step = 0;
@@ -53,6 +61,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         return () => clearInterval(interval);
     }
   }, [isOpen, activeTab]);
+
+  const handleLimitChange = (val: number) => {
+      setDailyLimit(val);
+      setUsageStats(prev => ({ ...prev, limit: val }));
+  };
+
+  const handlePanicDisconnect = () => {
+      removeStoredApiKey();
+      revokeAccess();
+      window.location.reload();
+  };
 
   if (!isOpen) return null;
 
@@ -102,14 +121,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     General
                 </button>
                 <button 
-                    onClick={() => setActiveTab('architecture')}
-                    className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-                        ${activeTab === 'architecture' 
-                            ? (isLight ? 'border-pink-500 text-pink-600' : 'border-pink-400 text-pink-400') 
+                    onClick={() => setActiveTab('safety')}
+                    className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2
+                        ${activeTab === 'safety' 
+                            ? (isLight ? 'border-yellow-500 text-yellow-600' : 'border-yellow-400 text-yellow-400') 
                             : 'border-transparent text-gray-400 hover:text-gray-300'}
                     `}
                 >
-                    Architecture
+                    <Shield size={14} /> Safety Governor
                 </button>
                 <button 
                     onClick={() => setActiveTab('system')}
@@ -119,7 +138,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             : 'border-transparent text-gray-400 hover:text-gray-300'}
                     `}
                 >
-                    System Console
+                    System Logs
                 </button>
             </div>
         </div>
@@ -208,84 +227,67 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
             )}
 
-            {activeTab === 'architecture' && (
+            {activeTab === 'safety' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                     <div className={`p-6 rounded-xl border flex flex-col items-center gap-6 relative overflow-hidden
-                        ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#131629] border-white/5'}
-                     `}>
-                        {/* Background Grid */}
-                        <div className="absolute inset-0 opacity-10 pointer-events-none" 
-                            style={{ 
-                                backgroundImage: `linear-gradient(#444 1px, transparent 1px), linear-gradient(90deg, #444 1px, transparent 1px)`,
-                                backgroundSize: '20px 20px'
-                            }}>
+                    <div className={`p-4 rounded-xl border ${isLight ? 'bg-yellow-50 border-yellow-200' : 'bg-yellow-500/10 border-yellow-500/20'}`}>
+                         <div className="flex items-start gap-3">
+                            <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={18} />
+                            <div>
+                                <h4 className={`text-sm font-bold ${isLight ? 'text-yellow-800' : 'text-yellow-200'}`}>Client-Side Security Warning</h4>
+                                <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-yellow-700' : 'text-yellow-200/70'}`}>
+                                    This application runs entirely in your browser. If you entered a personal API key, it is stored in your browser's local storage.
+                                    <br/><br/>
+                                    <strong>Recommendation:</strong> Set a budget quota in your Google Cloud Console to prevent unexpected costs if your key is ever compromised.
+                                </p>
+                            </div>
+                         </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <label className={`text-sm font-bold ${isLight ? 'text-slate-700' : 'text-white'}`}>Daily Usage Limit</label>
+                            <span className={`text-xs font-mono px-2 py-1 rounded ${isLight ? 'bg-slate-100' : 'bg-white/10'}`}>
+                                {usageStats.count} / {usageStats.limit} used today
+                            </span>
                         </div>
 
-                        {/* Flow Chart */}
-                        <div className="flex flex-col items-center gap-4 relative z-10 w-full">
-                            
-                            {/* Node 1: Client */}
-                            <div className={`w-full p-3 rounded-lg border flex items-center gap-3 transition-colors
-                                ${isLight ? 'bg-white border-slate-200' : 'bg-black/40 border-cyan-500/30'}
-                            `}>
-                                <div className={`p-2 rounded bg-cyan-500/10 text-cyan-400`}>
-                                    <Monitor size={18} />
-                                </div>
-                                <div className="flex-1">
-                                    <div className={`text-xs font-bold ${isLight ? 'text-slate-700' : 'text-cyan-100'}`}>CLIENT-SIDE APP</div>
-                                    <div className="text-[10px] text-gray-500 font-mono">React 19 • Vite • WebGL</div>
-                                </div>
-                            </div>
-
-                            {/* Connector */}
-                            <div className="h-4 w-0.5 bg-gray-600/30"></div>
-
-                            {/* Node 2: Gateway */}
-                            <div className={`w-full p-3 rounded-lg border flex items-center gap-3 transition-colors
-                                ${isLight ? 'bg-white border-slate-200' : 'bg-black/40 border-purple-500/30'}
-                            `}>
-                                <div className={`p-2 rounded bg-purple-500/10 text-purple-400`}>
-                                    <Shield size={18} />
-                                </div>
-                                <div className="flex-1">
-                                    <div className={`text-xs font-bold ${isLight ? 'text-slate-700' : 'text-purple-100'}`}>SECURE GATEWAY</div>
-                                    <div className="text-[10px] text-gray-500 font-mono">Google GenAI SDK • API Key</div>
-                                </div>
-                            </div>
-
-                            {/* Connector */}
-                            <div className="h-4 w-0.5 bg-gray-600/30"></div>
-
-                            {/* Node 3: Cloud */}
-                            <div className={`w-full p-3 rounded-lg border flex items-center gap-3 transition-colors
-                                ${isLight ? 'bg-white border-slate-200' : 'bg-black/40 border-emerald-500/30'}
-                            `}>
-                                <div className={`p-2 rounded bg-emerald-500/10 text-emerald-400`}>
-                                    <Server size={18} />
-                                </div>
-                                <div className="flex-1">
-                                    <div className={`text-xs font-bold ${isLight ? 'text-slate-700' : 'text-emerald-100'}`}>VERTEX AI (CLOUD)</div>
-                                    <div className="text-[10px] text-gray-500 font-mono">Gemini 3.0 Pro • Veo 3.1</div>
-                                    <div className="text-[9px] text-emerald-500/70 font-mono mt-1">ID: gen-lang-client-0175994694</div>
-                                </div>
-                            </div>
-
+                        {/* Progress Bar */}
+                        <div className="h-2 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full transition-all duration-500 ${usageStats.count >= usageStats.limit ? 'bg-red-500' : 'bg-cyan-500'}`}
+                                style={{ width: `${Math.min((usageStats.count / usageStats.limit) * 100, 100)}%` }}
+                            />
                         </div>
-                     </div>
 
-                     <div className="space-y-2">
-                        <h4 className={`text-xs font-bold uppercase tracking-wider ml-1 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
-                            Technical Specifications
-                        </h4>
-                        <div className={`grid grid-cols-2 gap-2 text-[11px] font-mono p-4 rounded-xl border
-                            ${isLight ? 'bg-slate-50 border-slate-200 text-slate-600' : 'bg-[#131629] border-white/5 text-gray-400'}
-                        `}>
-                            <div className="flex items-center gap-2"><Globe size={12}/> Region: us-west1</div>
-                            <div className="flex items-center gap-2"><Cpu size={12}/> Model: Gemini 3.0 Pro</div>
-                            <div className="flex items-center gap-2"><Database size={12}/> History: LocalStorage</div>
-                            <div className="flex items-center gap-2"><Network size={12}/> Protocol: gRPC/REST</div>
+                        <div className="space-y-2">
+                            <p className={`text-xs ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Set a hard stop for generations per day (Circuit Breaker).</p>
+                            <input 
+                                type="range" 
+                                min="5" 
+                                max="200" 
+                                step="5"
+                                value={usageStats.limit} 
+                                onChange={(e) => handleLimitChange(Number(e.target.value))}
+                                className="w-full accent-cyan-500"
+                            />
+                            <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                                <span>5</span>
+                                <span>200</span>
+                            </div>
                         </div>
-                     </div>
+                    </div>
+
+                    <div className={`pt-6 border-t ${isLight ? 'border-slate-100' : 'border-white/5'}`}>
+                         <button 
+                            onClick={handlePanicDisconnect}
+                            className="w-full py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all font-bold text-sm flex items-center justify-center gap-2"
+                         >
+                            <Lock size={16} /> EMERGENCY DISCONNECT
+                         </button>
+                         <p className="text-[10px] text-gray-500 text-center mt-2">
+                            Instantly removes API key & access codes from browser memory and reloads.
+                         </p>
+                    </div>
                 </div>
             )}
 

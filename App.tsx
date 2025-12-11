@@ -12,7 +12,7 @@ import SettingsModal from './components/SettingsModal';
 import OnboardingModal from './components/OnboardingModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
-import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen, isAccessGranted, grantAccess, revokeAccess } from './services/storageService';
+import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen, isAccessGranted, grantAccess, revokeAccess, isLimitReached, incrementUsage } from './services/storageService';
 import { playPowerUp, playSuccess, playError, playClick } from './services/audioService';
 import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut, ShieldCheck, Lock } from 'lucide-react';
 
@@ -159,6 +159,10 @@ const App: React.FC = () => {
 
   const handlePreviewGeneration = async () => {
     if (isPreviewLoading) return;
+
+    // Safety check for preview too
+    if (isLimitReached()) return;
+
     setIsPreviewLoading(true);
 
     try {
@@ -276,6 +280,14 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
+    // 1. Check Usage Limits (Safety Governor)
+    if (isLimitReached()) {
+        playError();
+        showNotification("Daily Usage Limit Reached. Check Settings > Safety Governor to increase limit.", 'error');
+        setIsSettingsOpen(true);
+        return;
+    }
+
     if (!config.prompt.trim() && !config.inputImage) {
       showNotification("Please describe the output you want to generate or upload a reference.", 'warning');
       setShowFreeTierSuggestion(false);
@@ -321,6 +333,7 @@ const App: React.FC = () => {
              setGalleryImages(updatedGallery);
              
              setGeneratedImages([newVideo]);
+             incrementUsage(); // Count usage
              playSuccess();
         } else {
              // IMAGE GENERATION
@@ -364,6 +377,7 @@ const App: React.FC = () => {
              setGalleryImages(currentGallery);
 
              setGeneratedImages(results);
+             incrementUsage(); // Count usage
              playSuccess();
         }
 
@@ -387,6 +401,12 @@ const App: React.FC = () => {
 
   const handleVariations = async (sourceImage: GeneratedImage) => {
     if (!sourceImage.seed || sourceImage.type !== 'image') return;
+    
+    // Check usage
+    if (isLimitReached()) {
+        showNotification("Daily Limit Reached.", 'error');
+        return;
+    }
 
     setIsGenerating(true);
     playPowerUp();
@@ -434,6 +454,7 @@ const App: React.FC = () => {
         setGalleryImages(currentGallery);
         
         setGeneratedImages(results);
+        incrementUsage();
         playSuccess();
     } catch (err: any) {
         console.error(err);
@@ -453,6 +474,12 @@ const App: React.FC = () => {
 
   const handleUpscale = async (targetImage: GeneratedImage) => {
     if (!targetImage.url || targetImage.type !== 'image') return;
+    
+    // Check usage
+    if (isLimitReached()) {
+        showNotification("Daily Limit Reached.", 'error');
+        return;
+    }
     
     setIsUpscaling(true);
     setNotification(null);
@@ -479,6 +506,7 @@ const App: React.FC = () => {
       // Auto-save Upscaled Result
       const updated = await saveToGallery(newImage);
       setGalleryImages(updated);
+      incrementUsage(); // Upscale counts as generation
 
       playSuccess();
       showNotification("Image upscaled to 4K resolution.", 'success');
