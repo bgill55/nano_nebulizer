@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { AppConfig, ModelType } from "../types";
 import { getStoredApiKey } from "./storageService";
@@ -509,37 +510,54 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
         if (operation.response?.generatedVideos?.[0]?.video?.uri) {
             const videoUri = operation.response.generatedVideos[0].video.uri;
             
-            // Fetch the actual video bytes using the API key
-            // Note: getClient has logic to throw if key is missing, so we access process.env.API_KEY OR local storage logic
-            // Since we are in the service, we can't easily reach getClient().apiKey if we didn't expose it.
-            // Better to re-fetch the key from storage or env:
-            const apiKey = process.env.API_KEY || getStoredApiKey();
+            // Re-fetch key logic to ensure we get the correct one even if process.env.API_KEY is empty/invalid
+            let apiKey = process.env.API_KEY;
+            
+            // If process.env.API_KEY is empty string (common in vite env replacement), fallback to storage
+            if (!apiKey || apiKey.trim() === '') {
+                apiKey = getStoredApiKey() || '';
+            }
 
             if (!apiKey) throw new Error("API Key missing during video fetch");
-
-            // Smart separator detection for append
-            const separator = videoUri.includes('?') ? '&' : '?';
-            const fetchUrl = `${videoUri}${separator}key=${apiKey}`;
+            
+            // Trim just in case
+            apiKey = apiKey.trim();
 
             try {
-                // Try to fetch as blob (Ideal)
-                const videoResponse = await fetch(fetchUrl);
+                // Method 1: Try with header (Cleanest, standard for Google GenAI SDK)
+                // This usually bypasses CORS issues if the key is allowed for this referer
+                const videoResponse = await fetch(videoUri, {
+                    headers: {
+                        'x-goog-api-key': apiKey
+                    }
+                });
                 
-                // CRITICAL FIX: Check if the response is valid (200 OK)
-                if (!videoResponse.ok) {
-                   throw new Error(`Fetch failed: ${videoResponse.status}`);
+                if (videoResponse.ok) {
+                     const videoBlob = await videoResponse.blob();
+                     return URL.createObjectURL(new Blob([videoBlob], { type: 'video/mp4' }));
+                }
+
+                // Method 2: Fallback to Query Param (if header fails)
+                const separator = videoUri.includes('?') ? '&' : '?';
+                const fetchUrl = `${videoUri}${separator}key=${apiKey}`;
+                
+                const fallbackResponse = await fetch(fetchUrl);
+                if (!fallbackResponse.ok) {
+                    const errorText = await fallbackResponse.text().catch(() => 'Unknown error');
+                    console.error("Video Fetch Failed. Status:", fallbackResponse.status, "Body:", errorText);
+                    throw new Error(`Fetch failed: ${fallbackResponse.status}`);
                 }
     
-                const videoBlob = await videoResponse.blob();
-                // FORCE MP4 MIME TYPE: Browser sometimes fails to detect type from raw bytes
+                const videoBlob = await fallbackResponse.blob();
                 const mp4Blob = new Blob([videoBlob], { type: 'video/mp4' });
                 return URL.createObjectURL(mp4Blob);
                 
             } catch (e) {
                 // FALLBACK: Return the direct authenticated URL
                 // This handles CORS issues where fetch() fails but <video src="..."> might succeed
-                console.warn("Direct video blob fetch failed (likely CORS). Falling back to remote URL.", e);
-                return fetchUrl;
+                console.warn("Direct video blob fetch failed. Falling back to remote URL.", e);
+                const separator = videoUri.includes('?') ? '&' : '?';
+                return `${videoUri}${separator}key=${apiKey}`;
             }
         }
 
