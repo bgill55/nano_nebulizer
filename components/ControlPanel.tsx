@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppConfig, ModelType, AppTheme, GenerationMode } from '../types';
-import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon } from 'lucide-react';
+import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon, Film } from 'lucide-react';
 import { playClick, playPowerUp } from '../services/audioService';
 
 interface ControlPanelProps {
@@ -155,6 +155,51 @@ const PRESETS = [
       steps: 50,
       guidanceScale: 8.5
     }
+  }
+];
+
+const VIDEO_PRESETS = [
+  {
+    id: 'cinematic_video',
+    label: 'Cinematic',
+    icon: Aperture,
+    gradient: 'from-amber-600 to-orange-800',
+    config: { style: 'Cinematic' }
+  },
+  {
+    id: 'drone',
+    label: 'Drone Shot',
+    icon: Send, // Using Send as a "Flight" icon proxy
+    gradient: 'from-cyan-500 to-blue-600',
+    config: { style: 'Drone Footage' }
+  },
+  {
+    id: 'vintage',
+    label: 'Vintage VHS',
+    icon: Film,
+    gradient: 'from-pink-500 to-rose-600',
+    config: { style: 'Vintage VHS' }
+  },
+  {
+    id: 'animation',
+    label: '3D Animation',
+    icon: Box,
+    gradient: 'from-purple-500 to-indigo-600',
+    config: { style: '3D Animation' }
+  },
+  {
+    id: 'cyberpunk_video',
+    label: 'Cyberpunk',
+    icon: Zap,
+    gradient: 'from-cyan-400 to-purple-500',
+    config: { style: 'Cyberpunk' }
+  },
+  {
+    id: 'nature',
+    label: 'Documentary',
+    icon: Sunset,
+    gradient: 'from-emerald-500 to-teal-600',
+    config: { style: 'Nature Documentary' }
   }
 ];
 
@@ -356,6 +401,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
     ? ['16:9', '9:16'] 
     : ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
+  const presetsToDisplay = config.mode === 'video' ? VIDEO_PRESETS : PRESETS;
+
   return (
     <div className="w-full max-w-5xl mx-auto mt-6 px-2 flex flex-col gap-6">
       
@@ -396,20 +443,18 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
       <div className={`flex p-1 rounded-xl border gap-1 shadow-lg backdrop-blur-md transition-colors
          ${isLight ? 'bg-white/80 border-slate-200' : 'bg-[#0f1225]/80 border-white/5'}
       `}>
-        {config.mode === 'image' && (
-            <button
-                onClick={() => { playClick(800); setActiveTab('styles'); }}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-300 
-                    ${activeTab === 'styles' 
-                        ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.1)]') 
-                        : (isLight ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5')}
-                `}
-                title="Styles"
-            >
-                <Palette size={16} />
-                <span className="hidden sm:inline">Styles</span>
-            </button>
-        )}
+        <button
+            onClick={() => { playClick(800); setActiveTab('styles'); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-300 
+                ${activeTab === 'styles' 
+                    ? (isLight ? 'bg-slate-100 text-slate-900 shadow-sm' : 'bg-white/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.1)]') 
+                    : (isLight ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5')}
+            `}
+            title="Styles"
+        >
+            <Palette size={16} />
+            <span className="hidden sm:inline">Styles</span>
+        </button>
         <button
             onClick={() => { playClick(800); setActiveTab('model'); }}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-300 
@@ -446,15 +491,15 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
       `}>
         
         {/* Styles Tab */}
-        {activeTab === 'styles' && config.mode === 'image' && (
+        {activeTab === 'styles' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div>
                     <label className={`text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 ${isLight ? 'text-slate-500' : 'text-pink-400'}`}>
-                        <Sparkles size={14} /> Quick Style Presets
+                        <Sparkles size={14} /> Quick Style Presets {config.mode === 'video' ? '(Video)' : '(Image)'}
                     </label>
                     {/* Adjusted Grid to handle 12 items smoothly */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                        {PRESETS.map((preset) => {
+                        {presetsToDisplay.map((preset) => {
                             const Icon = preset.icon;
                             const isActive = config.style === preset.config.style;
                             return (
@@ -497,19 +542,33 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                                         : 'bg-[#131629] border-white/10 text-gray-300 hover:bg-[#1a1e35]'}
                                 `}
                             >
-                                <option value="Anime">Anime</option>
-                                <option value="Photorealistic">Photorealistic</option>
-                                <option value="Cyberpunk">Cyberpunk</option>
-                                <option value="Oil Painting">Oil Painting</option>
-                                <option value="Cinematic">Cinematic</option>
-                                <option value="3D Render">3D Render</option>
-                                <option value="Pixel Art">Pixel Art</option>
-                                <option value="Dark Fantasy">Dark Fantasy</option>
-                                <option value="Watercolor">Watercolor</option>
-                                <option value="Vaporwave">Vaporwave</option>
-                                <option value="Origami Paper Art">Origami</option>
-                                <option value="Isometric 3D">Isometric</option>
-                                <option value="None">No Style</option>
+                                {config.mode === 'video' ? (
+                                    <>
+                                        <option value="Cinematic">Cinematic</option>
+                                        <option value="Drone Footage">Drone Shot</option>
+                                        <option value="Vintage VHS">Vintage VHS</option>
+                                        <option value="3D Animation">3D Animation</option>
+                                        <option value="Cyberpunk">Cyberpunk</option>
+                                        <option value="Nature Documentary">Documentary</option>
+                                        <option value="None">No Style</option>
+                                    </>
+                                ) : (
+                                    <>
+                                        <option value="Anime">Anime</option>
+                                        <option value="Photorealistic">Photorealistic</option>
+                                        <option value="Cyberpunk">Cyberpunk</option>
+                                        <option value="Oil Painting">Oil Painting</option>
+                                        <option value="Cinematic">Cinematic</option>
+                                        <option value="3D Render">3D Render</option>
+                                        <option value="Pixel Art">Pixel Art</option>
+                                        <option value="Dark Fantasy">Dark Fantasy</option>
+                                        <option value="Watercolor">Watercolor</option>
+                                        <option value="Vaporwave">Vaporwave</option>
+                                        <option value="Origami Paper Art">Origami</option>
+                                        <option value="Isometric 3D">Isometric</option>
+                                        <option value="None">No Style</option>
+                                    </>
+                                )}
                             </select>
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                                 <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>

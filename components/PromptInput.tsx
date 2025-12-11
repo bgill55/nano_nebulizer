@@ -145,6 +145,7 @@ const AVAILABLE_STYLES = [
 ];
 
 const PromptInput: React.FC<PromptInputProps> = ({ 
+  label,
   placeholder, 
   value, 
   onChange, 
@@ -448,6 +449,13 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
       <div className="flex h-full">
         <div className="flex-1 relative flex flex-col">
+            
+           {/* Label Component */}
+           {label && (
+             <div className={`absolute top-2 left-6 z-10 text-[10px] font-bold uppercase tracking-widest pointer-events-none select-none ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
+               {label}
+             </div>
+           )}
             
            {/* Current Style Badge */}
            {currentStyle !== 'None' && activeStyleObj && (

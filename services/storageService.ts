@@ -8,17 +8,16 @@ const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
 const API_KEY_STORAGE_KEY = 'nebula_api_key';
 const ONBOARDING_KEY = 'nebula_mission_briefing_seen';
-const MAX_GALLERY_ITEMS = 50; // Increased from 20 to 50
+const ACCESS_GRANTED_KEY = 'nebula_system_access_granted'; // New key for access code
+const MAX_GALLERY_ITEMS = 50; 
 const MAX_HISTORY_ITEMS = 20;
 
 // --- Utility ---
 
 export const generateUUID = (): string => {
-    // Native support check
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         return crypto.randomUUID();
     }
-    // Fallback for non-secure contexts
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -41,6 +40,32 @@ export const markOnboardingSeen = () => {
         localStorage.setItem(ONBOARDING_KEY, 'true');
     } catch (e) {
         console.error("Failed to save onboarding status", e);
+    }
+};
+
+// --- Access Code / Security Logic ---
+
+export const isAccessGranted = (): boolean => {
+    try {
+        return localStorage.getItem(ACCESS_GRANTED_KEY) === 'true';
+    } catch (e) {
+        return false;
+    }
+};
+
+export const grantAccess = () => {
+    try {
+        localStorage.setItem(ACCESS_GRANTED_KEY, 'true');
+    } catch (e) {
+        console.error("Failed to grant access", e);
+    }
+};
+
+export const revokeAccess = () => {
+    try {
+        localStorage.removeItem(ACCESS_GRANTED_KEY);
+    } catch (e) {
+        console.error("Failed to revoke access", e);
     }
 };
 
@@ -87,7 +112,6 @@ export const getGallery = async (): Promise<GeneratedImage[]> => {
     try {
         const db = await initDB();
         const allItems = await db.getAllFromIndex(GALLERY_STORE_NAME, 'timestamp');
-        // Return reversed (newest first)
         return allItems.reverse();
     } catch (e) {
         console.error("Failed to load gallery from IndexedDB", e);
@@ -108,9 +132,6 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
     try {
         const db = await initDB();
         
-        // Ensure data is persistent (convert blob URLs to Base64 if needed)
-        // Video blobs from Veo are usually blob: URLs which are temporary.
-        // We must fetch and convert them to store permanently.
         let storageImage = { ...image };
         
         if (storageImage.url.startsWith('blob:')) {
@@ -121,11 +142,8 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                 storageImage.url = base64;
             } catch (err) {
                 console.warn("Failed to convert blob to base64 for storage", err);
-                // Continue trying to save original url, though it might expire
             }
         } else if (storageImage.type === 'video' && storageImage.url.startsWith('http')) {
-            // Attempt to fetch remote video to cache it
-            // If CORS fails, we simply keep the remote URL and don't crash
             try {
                 const response = await fetch(storageImage.url);
                 if (response.ok) {
@@ -135,7 +153,6 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                 }
             } catch (err) {
                 console.warn("Could not cache video to IDB (likely CORS). Saved as remote link.", err);
-                // We do NOT throw here. We save the remote URL so the user can at least view it for now.
             }
         }
 
@@ -144,14 +161,10 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         
         await store.put(storageImage);
         
-        // Quota Management: Check count
         const count = await store.count();
         if (count > MAX_GALLERY_ITEMS) {
-            // Delete oldest
-            // IndexedDB 'getAllKeys' returns sorted by key (id) usually, but we need sorted by timestamp.
-            // Using a cursor or index is better.
             const index = store.index('timestamp');
-            const keys = await index.getAllKeys(); // sorted by timestamp ascending (oldest first)
+            const keys = await index.getAllKeys();
             
             const itemsToDelete = count - MAX_GALLERY_ITEMS;
             for (let i = 0; i < itemsToDelete; i++) {
@@ -218,7 +231,6 @@ export const getTemplates = (): PromptTemplate[] => {
         }
         return JSON.parse(stored);
     } catch (e) {
-        console.error("Failed to load templates", e);
         return DEFAULT_TEMPLATES;
     }
 };
@@ -230,7 +242,6 @@ export const saveTemplate = (template: PromptTemplate): PromptTemplate[] => {
         localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(updated));
         return updated;
     } catch (e) {
-        console.error("Failed to save template", e);
         return getTemplates();
     }
 };
@@ -242,7 +253,6 @@ export const deleteTemplate = (id: string): PromptTemplate[] => {
         localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(updated));
         return updated;
     } catch (e) {
-        console.error("Failed to delete template", e);
         return getTemplates();
     }
 };

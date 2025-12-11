@@ -12,11 +12,14 @@ import SettingsModal from './components/SettingsModal';
 import OnboardingModal from './components/OnboardingModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
-import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen } from './services/storageService';
+import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen, isAccessGranted, grantAccess, revokeAccess } from './services/storageService';
 import { playPowerUp, playSuccess, playError, playClick } from './services/audioService';
-import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut } from 'lucide-react';
+import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut, ShieldCheck, Lock } from 'lucide-react';
 
 const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, bad anatomy, ugly, pixelated, watermark, text, signature, worst quality, deformed, disfigured, cropped, mutation, bad proportions, extra limbs, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck";
+
+// CHANGE THIS CODE TO SECURE YOUR APP
+const SYSTEM_ACCESS_CODE = "nebula-2025"; 
 
 const DEFAULT_CONFIG: AppConfig = {
   mode: 'image',
@@ -47,8 +50,14 @@ const App: React.FC = () => {
   // Notification State
   const [notification, setNotification] = useState<{message: string, type: 'info' | 'success' | 'warning' | 'error'} | null>(null);
   const [showFreeTierSuggestion, setShowFreeTierSuggestion] = useState(false);
+  
   const [hasKey, setHasKey] = useState<boolean | null>(null);
-  // Manual Key Input State
+  
+  // Security / Access Code State
+  const [isLocked, setIsLocked] = useState(false);
+  const [accessCodeInput, setAccessCodeInput] = useState('');
+  
+  // Manual Key Input State (For BYOK Fallback)
   const [manualKey, setManualKey] = useState('');
   
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -66,29 +75,39 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 1. Check Env
+      // 1. Check for Embedded Env Key (Deployed App)
       if (process.env.API_KEY) {
-          setHasKey(true);
+          // If we have an embedded key, we MUST gate it with an access code
+          // unless the user has already passed the check.
+          if (isAccessGranted()) {
+              setHasKey(true);
+              setIsLocked(false);
+          } else {
+              setHasKey(true); // Technically we have a key
+              setIsLocked(true); // But we lock the UI
+          }
       } 
-      // 2. Check AI Studio (Dev Env)
+      // 2. Check AI Studio (Dev Env) - No lock needed
       else if (window.aistudio && window.aistudio.hasSelectedApiKey) {
         const has = await window.aistudio.hasSelectedApiKey();
         setHasKey(has);
+        setIsLocked(false);
       } 
-      // 3. Check LocalStorage (Deployed Env)
+      // 3. Check LocalStorage (BYOK User) - No lock needed (they own the key)
       else {
         const stored = getStoredApiKey();
         setHasKey(!!stored);
+        setIsLocked(false);
       }
       
       const imgs = await getGallery();
       setGalleryImages(imgs);
 
       // 4. Check Onboarding
-      if (!hasSeenOnboarding()) {
+      if (!hasSeenOnboarding() && !isLocked) {
           setTimeout(() => {
               setIsOnboardingOpen(true);
-          }, 1000); // Slight delay for effect
+          }, 1000); 
       }
     };
     init();
@@ -120,7 +139,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!livePreviewEnabled || !hasKey || config.mode === 'video') {
+    if (!livePreviewEnabled || !hasKey || isLocked || config.mode === 'video') {
         if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
         return;
     }
@@ -136,7 +155,7 @@ const App: React.FC = () => {
     return () => {
         if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
     };
-  }, [config, livePreviewEnabled, hasKey]);
+  }, [config, livePreviewEnabled, hasKey, isLocked]);
 
   const handlePreviewGeneration = async () => {
     if (isPreviewLoading) return;
@@ -177,7 +196,9 @@ const App: React.FC = () => {
     } else {
         // In deployment, remove key and force re-entry
         removeStoredApiKey();
+        revokeAccess(); // Also revoke admin access if they logout
         setHasKey(false);
+        setIsLocked(false); // Reset lock state to show BYOK screen
     }
   };
 
@@ -185,11 +206,32 @@ const App: React.FC = () => {
       if (manualKey.trim().length > 10) {
           saveApiKey(manualKey.trim());
           setHasKey(true);
+          setIsLocked(false);
           playSuccess();
       } else {
           showNotification("Invalid API Key format", 'error');
           playError();
       }
+  };
+
+  const handleAccessCodeSubmit = () => {
+      if (accessCodeInput === SYSTEM_ACCESS_CODE) {
+          grantAccess();
+          setIsLocked(false);
+          setHasKey(true);
+          playSuccess();
+          showNotification("Security Clearance Granted. Welcome, Administrator.", 'success');
+      } else {
+          playError();
+          showNotification("Access Denied. Invalid Clearance Code.", 'error');
+      }
+  };
+
+  const handleSwitchToBYOK = () => {
+      // User doesn't know the password, so they want to use their own key
+      // We essentially act as if the env key doesn't exist
+      setIsLocked(false);
+      setHasKey(false);
   };
 
   const updateConfig = (key: keyof AppConfig, value: any) => {
@@ -254,7 +296,14 @@ const App: React.FC = () => {
     try {
         if (config.mode === 'video') {
              // VIDEO GENERATION
-             const videoUrl = await generateVideo(config);
+             let videoPrompt = config.prompt;
+             if (config.style !== 'None' && config.prompt.trim()) {
+                 videoPrompt = `${config.style} style: ${config.prompt}`;
+             }
+
+             const videoConfig = { ...config, prompt: videoPrompt };
+             const videoUrl = await generateVideo(videoConfig);
+
              const newVideo: GeneratedImage = {
                 id: generateUUID(),
                 url: videoUrl,
@@ -263,7 +312,8 @@ const App: React.FC = () => {
                 timestamp: Date.now(),
                 aspectRatio: config.aspectRatio,
                 model: config.model,
-                negativePrompt: config.negativePrompt
+                negativePrompt: config.negativePrompt,
+                style: config.style
              };
              
              // Auto-save Video
@@ -484,6 +534,74 @@ const App: React.FC = () => {
 
   if (hasKey === null) return <div className="min-h-screen bg-[#050510]" />;
 
+  // LOCK SCREEN (If Env Key exists but code not entered)
+  if (isLocked) {
+      return (
+        <div className="min-h-screen text-white relative flex flex-col items-center justify-center overflow-hidden">
+            <Background theme={config.theme} />
+            
+            <div className="z-10 p-1 bg-gradient-to-br from-red-500/30 via-purple-500/30 to-transparent rounded-3xl backdrop-blur-sm max-w-md w-full mx-4 shadow-2xl animate-in fade-in zoom-in duration-500">
+               <div className="bg-[#0b0e1e]/90 rounded-[22px] p-8 text-center space-y-8 relative overflow-hidden">
+                  {/* Scanline Effect */}
+                  <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(transparent_0%,rgba(255,0,0,0.05)_50%,transparent_100%)] bg-[length:100%_4px] animate-scan" />
+
+                  <div className="relative">
+                    <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/30 mb-4 animate-pulse">
+                        <Lock className="text-red-500" size={32} />
+                    </div>
+                    <h1 className="text-3xl font-bold font-rajdhani bg-clip-text text-transparent bg-gradient-to-r from-red-400 via-white to-purple-400 relative">
+                      Security Clearance
+                    </h1>
+                  </div>
+                  
+                  <div className="space-y-4">
+                      <p className="text-gray-300 font-light text-sm">
+                        This system is running in managed mode. Please enter the access code to use the hosted API key.
+                      </p>
+                      
+                      <div className="space-y-3">
+                             <div className="relative">
+                                <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                                <input 
+                                    type="password"
+                                    placeholder="Enter Access Code..."
+                                    value={accessCodeInput}
+                                    onChange={(e) => setAccessCodeInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAccessCodeSubmit()}
+                                    className="w-full bg-[#131629] border border-red-500/20 rounded-xl py-3 pl-10 pr-4 text-white focus:border-red-500 focus:outline-none transition-colors text-center font-mono tracking-widest"
+                                />
+                             </div>
+                             <button 
+                                onClick={handleAccessCodeSubmit}
+                                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-purple-700 font-bold text-white shadow-lg shadow-red-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+                            >
+                                <Zap size={18} />
+                                Verify Identity
+                            </button>
+                            
+                            <div className="pt-4 border-t border-white/5 mt-4">
+                                <button 
+                                    onClick={handleSwitchToBYOK}
+                                    className="text-xs text-gray-500 hover:text-white transition-colors underline decoration-dotted"
+                                >
+                                    I want to use my own Personal API Key
+                                </button>
+                            </div>
+                      </div>
+                  </div>
+               </div>
+            </div>
+            
+            {notification && (
+                <div className="fixed top-10 right-1/2 translate-x-1/2 z-[60] px-6 py-3 rounded-full bg-red-500/90 text-white shadow-xl backdrop-blur-md flex items-center gap-2 animate-in slide-in-from-top-4 fade-in">
+                    <AlertCircle size={18} /> {notification.message}
+                </div>
+            )}
+        </div>
+      );
+  }
+
+  // BYOK SCREEN (No Env Key or User chose to use own key)
   if (!hasKey) {
     return (
       <div className="min-h-screen text-white relative flex flex-col items-center justify-center overflow-hidden">
@@ -627,6 +745,7 @@ const App: React.FC = () => {
 
                         {config.mode === 'image' && (
                         <PromptInput 
+                            label="Negative Prompt"
                             placeholder="Describe what you don't want in the image..." 
                             value={config.negativePrompt}
                             onChange={(val) => updateConfig('negativePrompt', val)}
@@ -662,8 +781,8 @@ const App: React.FC = () => {
       </main>
 
       <div className="fixed bottom-6 left-6 z-40 flex flex-col gap-2">
-         {/* Logout Button (Only if stored key exists) */}
-         {!window.aistudio && getStoredApiKey() && (
+         {/* Logout Button (Only if stored key exists OR if logged in via Admin Code) */}
+         {(!window.aistudio && (getStoredApiKey() || isAccessGranted())) && (
             <button 
                 onClick={handleApiKeySelect}
                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:scale-105 duration-300 group relative border
@@ -671,7 +790,7 @@ const App: React.FC = () => {
                         ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' 
                         : 'bg-red-900/50 border-red-500/30 text-red-400 hover:bg-red-900/80'}
                 `}
-                title="Disconnect API Key"
+                title="Disconnect / Lock"
             >
                 <LogOut size={20} />
             </button>
