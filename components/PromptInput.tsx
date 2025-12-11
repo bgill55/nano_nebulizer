@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check, BrainCircuit, ShieldBan, Plus } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check, BrainCircuit, ShieldBan, Plus, ChevronUp } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 import { playClick, playHover, playSuccess } from '../services/audioService';
 import { detectStyleFromPrompt } from '../services/geminiService';
@@ -39,28 +39,21 @@ const LOADING_PHASES = [
 ];
 
 const VIDEO_PROMPTS = [
-    // Cinematic & Drone
     "Cinematic drone shot flying over a futuristic cyberpunk city at night, neon lights reflecting on wet pavement, 4k resolution.",
     "Aerial view of a jagged coastline with crashing waves, slow motion, moody overcast sky.",
     "A camera flying through a dense jungle, revealing a hidden ancient stone temple, sunlight streaming through leaves.",
     "FPV drone shot racing through a narrow canyon, speed lines, motion blur, high adrenaline.",
     "Wide shot of a spaceship landing on a dusty red planet, thrusters kicking up dust clouds, cinematic lighting.",
-    
-    // Nature & Animals
     "A majestic lion running across the African savanna during golden hour, dust kicking up, slow motion.",
     "Time-lapse of a flower blooming, vibrant colors, soft lighting, macro perspective, 4k.",
     "Underwater footage of a coral reef with colorful fish swimming, sun rays penetrating the water.",
     "A cute red panda eating bamboo in a lush green bamboo forest, sunlight filtering through leaves, wildlife documentary style.",
     "A wolf howling at a giant full moon, silhouette against the night sky, wind blowing through fur.",
-
-    // Action & Motion
     "A cyberpunk samurai drawing their katana in the rain, neon reflections on the blade, slow motion.",
     "A futuristic car driving fast through a tunnel of light, motion blur, synthwave aesthetic.",
     "A robot hand assembling a mechanical watch, sparks flying, high detail macro, precise movements.",
     "A chef chopping vegetables rapidly in a professional kitchen, steam rising from pots, dynamic camera angle.",
     "An astronaut floating in zero gravity inside a spaceship corridor, spinning slowly, intricate sci-fi details.",
-
-    // Abstract & FX
     "A liquid gold simulation pouring over a black sphere, splashing and flowing, abstract 3d render style.",
     "A storm brewing over the ocean, dark clouds swirling, lightning strikes, cinematic visual effects.",
     "A retro 80s vaporwave grid landscape moving forward endlessly, purple sun setting, synthwave vibe.",
@@ -69,7 +62,6 @@ const VIDEO_PROMPTS = [
 ];
 
 const SURPRISE_PROMPTS = [
-    // Sci-Fi & Cyberpunk
     "A futuristic city built inside a giant glass dome on Mars, bioluminescent plants, neon lights, 8k resolution, cinematic lighting.",
     "Cyberpunk street food vendor in Tokyo, rain, reflections on wet pavement, steam rising from food, neon signs.",
     "A futuristic high-speed train traveling through a glass tube underwater, coral reefs outside, bright daylight.",
@@ -80,8 +72,6 @@ const SURPRISE_PROMPTS = [
     "A robot repair shop with scattered parts, oil stains, and a friendly droid fixing its own arm, cinematic lighting.",
     "A massive Dyson sphere structure under construction around a dying star, epic scale, lens flare.",
     "A hacker's workspace with multiple monitors displaying cascading green code, dark room, ambient purple glow.",
-
-    // Fantasy & Magical
     "A majestic dragon made of crystal and starlight soaring through a nebula, cosmic background, ethereal glow.",
     "A cozy library inside a hollowed-out giant tree, warm lighting, fireflies, magical atmosphere.",
     "An ancient temple overgrown with giant glowing mushrooms in a subterranean cavern, mystical atmosphere, cinematic lighting.",
@@ -92,8 +82,6 @@ const SURPRISE_PROMPTS = [
     "A floating island with waterfalls cascading into the clouds, vibrant green grass, fantasy castle.",
     "A phoenix rising from ashes, feathers made of actual fire and embers, dynamic pose.",
     "A secret garden hidden inside a pocket watch, macro photography, tiny flowers and vines.",
-
-    // Surreal & Abstract
     "A surreal landscape with floating islands and waterfalls cascading into the sky, dreamlike, pastel colors.",
     "A miniature world inside a lightbulb, mossy forests, tiny waterfalls, soft warm glow, macro detail.",
     "A surreal painting of melting clocks draped over dead trees in a desert landscape, Dali style, dreamlike.",
@@ -104,8 +92,6 @@ const SURPRISE_PROMPTS = [
     "An astronaut fishing for stars from the edge of a crescent moon.",
     "A bouquet of flowers where the petals are made of colorful paint splashes, liquid simulation.",
     "A city made entirely of musical instruments, saxophone skyscrapers, drum buildings.",
-
-    // Photorealistic & Nature
     "A cute robot gardener watering plants in a greenhouse, sunlight streaming through glass, vibrant colors, detailed textures.",
     "Post-apocalyptic overgrown city, nature reclaiming skyscrapers, vines, flowers, deer grazing on asphalt, peaceful atmosphere.",
     "A close-up portrait of a translucent bioluminescent jellyfish floating in a deep space nebula, starlight refraction, macro photography.",
@@ -116,8 +102,6 @@ const SURPRISE_PROMPTS = [
     "A knolling photography flat lay of vintage camera gear, highly detailed, clean background.",
     "A red panda wearing aviator goggles flying a vintage biplane, whimsical, highly detailed.",
     "A hyper-realistic close-up of a human eye, the iris containing a map of the world.",
-
-    // Art Styles & Specific Techniques
     "Steampunk airship fleet flying over Victorian London at sunset, detailed mechanical parts, clouds, golden hour.",
     "Steampunk owl with brass gears and clockwork eyes, perched on a pile of old leather books, dust motes dancing in light beams.",
     "Origami paper art landscape of mountains and rivers, textured paper look, soft shadows.",
@@ -492,7 +476,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const isMenuOpen = showHistory || showStyleMenu || showNegativeMenu;
 
   return (
-    <div className={`relative w-full rounded-2xl transition-all duration-300 p-1 group border
+    <div className={`relative w-full rounded-2xl transition-all duration-300 p-1 group border flex flex-col
         ${isMenuOpen ? 'z-40' : 'z-20'}
         ${isLight 
             ? 'bg-white/90 border-slate-200 shadow-sm focus-within:border-cyan-500/50 focus-within:shadow-[0_0_20px_rgba(6,182,212,0.1)]' 
@@ -504,8 +488,8 @@ const PromptInput: React.FC<PromptInputProps> = ({
       {/* Glow effect container */}
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-purple-500/5 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
 
-      <div className="flex h-full">
-        <div className="flex-1 relative flex flex-col">
+      {/* Main Text Area Wrapper */}
+      <div className="flex-1 relative flex flex-col w-full">
             
            {/* Label Component */}
            {label && (
@@ -514,26 +498,24 @@ const PromptInput: React.FC<PromptInputProps> = ({
              </div>
            )}
             
-           {/* Current Style Badge */}
+           {/* Current Style Badge - Moved to floating top right */}
            {currentStyle !== 'None' && activeStyleObj && (
-             <button 
-                onClick={toggleStyleMenu}
-                className={`absolute top-3 right-4 z-10 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all hover:scale-105
+             <div className={`absolute top-3 right-4 z-10 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all pointer-events-none
                     ${isLight 
-                        ? 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-white hover:shadow-sm' 
-                        : 'bg-black/40 border-white/10 text-gray-300 hover:bg-black/60'}
+                        ? 'bg-slate-100 border-slate-200 text-slate-600' 
+                        : 'bg-black/40 border-white/10 text-gray-300'}
                 `}
              >
                 <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${activeStyleObj.color} ${isStyleRolling ? 'animate-spin' : ''}`} />
                 {activeStyleObj.label}
-             </button>
+             </div>
            )}
 
            <textarea
             ref={textareaRef}
-            className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[120px] transition-colors
+            className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[100px] transition-colors
               ${isLight ? 'text-slate-800 placeholder-slate-400' : 'text-gray-100 placeholder-gray-500'}
-              ${inputImage ? 'pb-24' : ''} 
+              ${inputImage ? 'pb-24' : 'pb-16'} 
               ${isRolling ? 'blur-[1px] opacity-80' : 'blur-0 opacity-100'}
             `}
             placeholder={isListening ? "Listening..." : placeholder}
@@ -546,14 +528,14 @@ const PromptInput: React.FC<PromptInputProps> = ({
           
           {/* Helper Text for Shortcut */}
           {isMain && (
-             <div className={`absolute bottom-3 right-4 text-[10px] pointer-events-none opacity-50 ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
-                Ctrl + Enter to Generate
+             <div className={`absolute bottom-2 right-4 text-[9px] pointer-events-none opacity-40 font-mono ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
+                CTRL + ENTER
              </div>
           )}
 
           {/* Voice Listening Indicator */}
           {isListening && (
-              <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-none">
+              <div className="absolute top-4 right-16 flex items-center gap-2 pointer-events-none">
                   <span className="relative flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
@@ -564,14 +546,14 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
           {/* Image Preview Area */}
           {inputImage && (
-            <div className="absolute bottom-4 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
-              <div className={`relative group/image inline-block rounded-lg overflow-hidden border
-                   ${isLight ? 'border-slate-200 bg-slate-100' : 'border-white/10 bg-black/20'}
+            <div className="absolute bottom-2 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
+              <div className={`relative group/image inline-block rounded-lg overflow-hidden border shadow-lg
+                   ${isLight ? 'border-slate-200 bg-slate-100' : 'border-white/10 bg-black/40'}
               `}>
                 <img 
                   src={inputImage} 
                   alt="Reference" 
-                  className="h-16 w-auto object-cover opacity-80 group-hover/image:opacity-100 transition-opacity" 
+                  className="h-12 w-auto object-cover opacity-90 group-hover/image:opacity-100 transition-opacity" 
                 />
                 <button 
                   onClick={() => {
@@ -580,380 +562,297 @@ const PromptInput: React.FC<PromptInputProps> = ({
                   }}
                   className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/50 text-white hover:bg-red-500 transition-colors"
                 >
-                  <X size={12} />
+                  <X size={10} />
                 </button>
-              </div>
-              <div className={`text-[10px] mt-1 font-mono ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
-                  {mode === 'video' ? 'Start Frame' : 'Image Reference'}
               </div>
             </div>
           )}
-        </div>
-        
-        <div className={`flex flex-col gap-2 p-3 justify-center border-l rounded-r-xl relative
+      </div>
+      
+      {/* Bottom Toolbar */}
+      <div className={`flex flex-wrap items-center justify-between p-3 gap-3 border-t rounded-b-xl
             ${isLight ? 'border-slate-100 bg-slate-50/50' : 'border-white/5 bg-black/20'}
-        `}>
-           {isMain && onImageUpload && (
-            <>
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                className="hidden" 
-                accept="image/*"
-                onChange={handleFileChange}
-              />
-              <div className="flex gap-2">
-                 {/* Upload Button */}
-                 <button 
-                    onClick={() => {
-                        playClick(600);
-                        fileInputRef.current?.click();
-                    }}
-                    className={`flex-1 min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border
-                        ${isLight 
-                            ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
-                            : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
-                        ${inputImage ? (isLight ? 'border-cyan-400 text-cyan-600 bg-cyan-50' : 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10') : ''}
-                    `}
-                    title={mode === 'video' ? "Upload Start Frame (Image-to-Video)" : "Upload Reference Image"}
-                 >
-                    {inputImage ? <ImageIcon size={14} /> : <Paperclip size={14} />} 
-                 </button>
-
-                 {/* Voice Input Button */}
-                 {recognitionRef.current && (
-                    <button 
-                        onClick={toggleListening}
-                        className={`flex-1 min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border
-                            ${isListening 
-                                ? 'bg-red-500/20 text-red-400 border-red-500/50 animate-pulse' 
-                                : (isLight ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10')}
-                        `}
-                        title="Voice Input"
-                    >
-                        {isListening ? <MicOff size={14} /> : <Mic size={14} />}
-                    </button>
-                 )}
-                 
-                 {/* Surprise Me Button */}
-                 <button 
-                    onClick={handleSurpriseMe}
-                    disabled={isRolling}
-                    className={`flex-1 min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border group/dice
-                        ${isLight 
-                            ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
-                            : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
-                        ${isRolling ? 'text-cyan-400 border-cyan-500/30' : ''}
-                    `}
-                    title="Surprise Me (Random Prompt)"
-                 >
-                    <Dices size={14} className={`transition-transform duration-500 ${isRolling ? 'animate-spin' : 'group-hover/dice:rotate-180'}`} />
-                 </button>
-              </div>
-
-              {isMain && onEnhance && (
-                <button 
-                 onClick={() => {
-                     playClick(1000);
-                     onEnhance();
-                 }}
-                 disabled={isEnhancing}
-                 className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border relative overflow-hidden group/enhance
-                    ${isLight 
-                       ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' 
-                       : 'bg-purple-500/10 text-purple-300 border-purple-500/20 hover:bg-purple-500/20'}
-                 `}
-                 title="Enhance Prompt with AI"
-               >
-                 <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 translate-x-[-150%] group-hover/enhance:animate-[shimmer_1.5s_infinite] ${isEnhancing ? 'animate-[shimmer_1s_infinite]' : ''}`} />
-                 <Sparkles size={14} className={isEnhancing ? "animate-spin" : ""} /> 
-                 <span className="hidden sm:inline">{isEnhancing ? 'Enhancing...' : 'Magic'}</span>
-               </button>
-             )}
-
-              {/* Style Selector (Stylenator) */}
-              {onStyleChange && mode === 'image' && (
-                  <div className="relative w-full" ref={styleMenuRef}>
-                      <button 
-                        onClick={toggleStyleMenu}
-                        className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border
-                            ${isLight 
-                            ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
-                            : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
-                            ${showStyleMenu ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
-                            ${currentStyle !== 'None' ? (isLight ? 'border-cyan-300' : 'border-cyan-500/30') : ''}
-                        `}
-                        title="Style Selector"
-                      >
-                         <Palette size={14} className={isStyleRolling ? 'animate-spin' : ''} /> 
-                         <span className="hidden sm:inline">Style</span>
-                      </button>
-
-                      {/* Style Menu Popover */}
-                      {showStyleMenu && (
-                          <div className={`absolute top-full right-0 mt-2 w-64 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right
-                              ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
-                          `}>
-                              <div className={`p-3 border-b flex items-center justify-between
-                                  ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}
-                              `}>
-                                  <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>The Stylenator</span>
-                                  <button 
-                                      onClick={() => {
-                                          playClick(500);
-                                          onStyleChange('None');
-                                          setShowStyleMenu(false);
-                                      }}
-                                      className={`text-[10px] hover:underline ${isLight ? 'text-slate-500' : 'text-gray-500'}`}
-                                  >
-                                      Reset
-                                  </button>
-                              </div>
-                              
-                              <div className="p-3">
-                                  <div className="flex gap-2 mb-4">
-                                      {/* Stylenator Random Button */}
-                                      <button 
-                                          onClick={handleRandomStyle}
-                                          disabled={isStyleRolling || isMatching}
-                                          className="flex-1 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                                      >
-                                          <Sparkles size={14} className={isStyleRolling ? 'animate-spin' : ''} />
-                                          <span className="text-[10px]">Surprise</span>
-                                      </button>
-                                      
-                                      {/* Smart Match Button */}
-                                      <button 
-                                          onClick={handleSmartMatch}
-                                          disabled={isStyleRolling || isMatching}
-                                          className="flex-1 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                                          title="Auto-detect style from prompt"
-                                      >
-                                          <BrainCircuit size={14} className={isMatching ? 'animate-pulse' : ''} />
-                                          <span className="text-[10px]">{isMatching ? 'Thinking' : 'Smart Match'}</span>
-                                      </button>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                                      {AVAILABLE_STYLES.map((style) => (
-                                          <button
-                                              key={style.value}
-                                              onClick={() => {
-                                                  playClick(800);
-                                                  onStyleChange(style.value);
-                                                  setShowStyleMenu(false);
-                                              }}
-                                              className={`text-left px-3 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-2
-                                                  ${currentStyle === style.value
-                                                      ? (isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-900/30 border-cyan-500/50 text-cyan-300')
-                                                      : (isLight ? 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10')}
-                                              `}
-                                          >
-                                              <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${style.color}`} />
-                                              {style.label}
-                                          </button>
-                                      ))}
-                                  </div>
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              )}
-            </>
-          )}
-
-          {/* Negative Presets Button */}
-          {isNegative && (
-               <div className="relative w-full" ref={negativeMenuRef}>
-                 <button 
-                     onClick={() => setShowNegativeMenu(!showNegativeMenu)}
-                     className={`w-full min-h-[40px] px-2 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1 mb-1 border
-                         ${isLight 
-                             ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
-                             : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
-                         ${showNegativeMenu ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
-                     `}
-                     title="Add Negative Preset"
-                 >
-                     <ShieldBan size={14} /> <span className="hidden sm:inline">Presets</span>
-                 </button>
-
-                 {showNegativeMenu && (
-                    <div className={`absolute bottom-full right-0 mb-2 w-56 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-right
-                         ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
+      `}>
+           
+           {/* Left Section: Inputs & Modifiers */}
+           <div className="flex items-center gap-2 flex-wrap">
+                
+                {/* Input Group */}
+                {isMain && onImageUpload && (
+                    <div className={`flex items-center p-1 rounded-lg border gap-1
+                        ${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/5 border-white/5'}
                     `}>
-                         <div className={`p-3 border-b flex items-center justify-between
-                                  ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}
-                          `}>
-                              <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Quick Block</span>
-                              <button onClick={() => setShowNegativeMenu(false)} className="text-gray-400 hover:text-white">
-                                <X size={12} />
-                              </button>
-                          </div>
-                          <div className="p-2 space-y-1">
-                                {NEGATIVE_PRESETS.map((preset) => (
-                                    <button
-                                        key={preset.label}
-                                        onClick={() => handleAddNegativePreset(preset.value)}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-2 group
-                                              ${isLight ? 'hover:bg-slate-50 border-transparent hover:border-slate-100 text-slate-600' : 'hover:bg-white/5 border-transparent hover:border-white/5 text-gray-400 hover:text-gray-200'}
-                                        `}
-                                    >
-                                        <Plus size={10} className="opacity-50 group-hover:opacity-100" />
-                                        <div className="flex flex-col">
-                                            <span>{preset.label}</span>
-                                            <span className="text-[8px] opacity-50 truncate w-32">{preset.value}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                          </div>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleFileChange}
+                        />
+                        <button 
+                            onClick={() => {
+                                playClick(600);
+                                fileInputRef.current?.click();
+                            }}
+                            className={`p-2 rounded-md transition-all hover:scale-110
+                                ${isLight ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-gray-400 hover:text-white'}
+                                ${inputImage ? 'text-cyan-500' : ''}
+                            `}
+                            title={mode === 'video' ? "Upload Start Frame" : "Upload Reference Image"}
+                        >
+                            {inputImage ? <ImageIcon size={16} /> : <Paperclip size={16} />}
+                        </button>
+
+                        {recognitionRef.current && (
+                            <button 
+                                onClick={toggleListening}
+                                className={`p-2 rounded-md transition-all hover:scale-110
+                                    ${isListening 
+                                        ? 'text-red-500 animate-pulse' 
+                                        : (isLight ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-gray-400 hover:text-white')}
+                                `}
+                                title="Voice Input"
+                            >
+                                {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                            </button>
+                        )}
+
+                        <button 
+                            onClick={handleSurpriseMe}
+                            disabled={isRolling}
+                            className={`p-2 rounded-md transition-all hover:scale-110 group/dice
+                                ${isLight ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-gray-400 hover:text-white'}
+                                ${isRolling ? 'text-cyan-500' : ''}
+                            `}
+                            title="Surprise Me"
+                        >
+                            <Dices size={16} className={`transition-transform duration-500 ${isRolling ? 'animate-spin' : 'group-hover/dice:rotate-180'}`} />
+                        </button>
                     </div>
-                 )}
-             </div>
-          )}
+                )}
 
-          {isMain && (
-            <div className="relative w-full" ref={historyRef}>
-                <button 
-                    onClick={toggleHistory}
-                    className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border
-                        ${isLight 
-                        ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
-                        : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
-                        ${showHistory ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
-                    `}
-                    title="Prompt History"
-                >
-                    <History size={14} /> <span className="hidden sm:inline">History</span>
-                </button>
+                {/* Enhance Button */}
+                {isMain && onEnhance && (
+                    <button 
+                        onClick={() => {
+                            playClick(1000);
+                            onEnhance();
+                        }}
+                        disabled={isEnhancing}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border group/enhance
+                            ${isLight 
+                            ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' 
+                            : 'bg-purple-500/10 text-purple-300 border-purple-500/20 hover:bg-purple-500/20'}
+                        `}
+                        title="Enhance Prompt"
+                    >
+                        <Sparkles size={14} className={isEnhancing ? "animate-spin" : ""} /> 
+                        <span className="hidden md:inline">{isEnhancing ? 'Working...' : 'Magic'}</span>
+                    </button>
+                )}
 
-                {/* History Dropdown */}
-                {showHistory && (
-                    <div className={`absolute top-full right-0 mt-2 w-64 md:w-80 rounded-xl shadow-2xl border backdrop-blur-md z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right
-                        ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
-                    `}>
-                        <div className={`p-3 border-b flex items-center justify-between
-                            ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}
-                        `}>
-                            <span className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Recent Prompts</span>
-                            {historyItems.length > 0 && (
-                                <button 
-                                    onClick={handleClearHistory}
-                                    className={`text-[10px] flex items-center gap-1 hover:underline ${isLight ? 'text-red-500' : 'text-red-400'}`}
-                                >
-                                    <Trash2 size={10} /> Clear
-                                </button>
-                            )}
-                        </div>
-                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                            {historyItems.length === 0 ? (
-                                <div className="p-6 text-center text-gray-500 text-xs">
-                                    No history yet.
+                {/* Style Dropdown */}
+                {onStyleChange && mode === 'image' && (
+                    <div className="relative" ref={styleMenuRef}>
+                        <button 
+                            onClick={toggleStyleMenu}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border
+                                ${isLight 
+                                ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
+                                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                                ${showStyleMenu ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
+                                ${currentStyle !== 'None' ? 'border-cyan-500/50 text-cyan-400' : ''}
+                            `}
+                            title="Style Selector"
+                        >
+                            <Palette size={14} className={isStyleRolling ? 'animate-spin' : ''} /> 
+                            <span className="hidden md:inline">Style</span>
+                        </button>
+
+                        {/* Style Menu Popover (Upwards) */}
+                        {showStyleMenu && (
+                            <div className={`absolute bottom-full left-0 mb-2 w-64 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-left
+                                ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
+                            `}>
+                                <div className="p-3">
+                                    <div className="flex gap-2 mb-3">
+                                        <button onClick={handleRandomStyle} className="flex-1 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center gap-1 transition-transform hover:scale-[1.02]">
+                                            <Sparkles size={12} /> Random
+                                        </button>
+                                        <button onClick={handleSmartMatch} className="flex-1 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center gap-1 transition-transform hover:scale-[1.02]">
+                                            <BrainCircuit size={12} /> Auto
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                        {AVAILABLE_STYLES.map((style) => (
+                                            <button
+                                                key={style.value}
+                                                onClick={() => {
+                                                    playClick(800);
+                                                    onStyleChange(style.value);
+                                                    setShowStyleMenu(false);
+                                                }}
+                                                className={`text-left px-2 py-1.5 rounded text-[10px] font-medium transition-all border flex items-center gap-2
+                                                    ${currentStyle === style.value
+                                                        ? (isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-900/30 border-cyan-500/50 text-cyan-300')
+                                                        : (isLight ? 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10')}
+                                                `}
+                                            >
+                                                <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${style.color}`} />
+                                                {style.label}
+                                            </button>
+                                        ))}
+                                        <button 
+                                            onClick={() => {
+                                                onStyleChange('None');
+                                                setShowStyleMenu(false);
+                                            }}
+                                            className={`text-left px-2 py-1.5 rounded text-[10px] font-medium border border-transparent hover:border-white/10 transition-colors ${isLight ? 'text-slate-500' : 'text-gray-500'}`}
+                                        >
+                                            None / Reset
+                                        </button>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="py-1">
-                                    {historyItems.map((item, idx) => (
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Negative Presets */}
+                {isNegative && (
+                    <div className="relative" ref={negativeMenuRef}>
+                        <button 
+                            onClick={() => setShowNegativeMenu(!showNegativeMenu)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border
+                                ${isLight 
+                                    ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
+                                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                                ${showNegativeMenu ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
+                            `}
+                            title="Negative Presets"
+                        >
+                            <ShieldBan size={14} /> <span className="hidden md:inline">Presets</span>
+                        </button>
+
+                        {showNegativeMenu && (
+                            <div className={`absolute bottom-full left-0 mb-2 w-56 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-left
+                                ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
+                            `}>
+                                <div className={`p-2 border-b flex items-center justify-between ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Quick Block</span>
+                                </div>
+                                <div className="p-1 space-y-0.5">
+                                    {NEGATIVE_PRESETS.map((preset) => (
                                         <button
-                                            key={idx}
-                                            onClick={() => handleSelectHistory(item)}
-                                            className={`w-full text-left px-4 py-3 text-xs leading-relaxed transition-colors border-b last:border-0 border-transparent
-                                                ${isLight 
-                                                    ? 'text-slate-600 hover:bg-slate-50 border-slate-50' 
-                                                    : 'text-gray-300 hover:bg-white/5 border-white/5'}
+                                            key={preset.label}
+                                            onClick={() => handleAddNegativePreset(preset.value)}
+                                            className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-medium transition-all flex items-center gap-2 group
+                                                ${isLight ? 'hover:bg-slate-50 text-slate-600' : 'hover:bg-white/5 text-gray-400 hover:text-gray-200'}
                                             `}
                                         >
-                                            <div className="flex items-start gap-2">
-                                                <Clock size={12} className={`mt-0.5 shrink-0 ${isLight ? 'text-slate-400' : 'text-gray-600'}`} />
-                                                <span className="line-clamp-2">{item}</span>
+                                            <Plus size={10} className="opacity-50 group-hover:opacity-100" />
+                                            <div className="flex flex-col">
+                                                <span>{preset.label}</span>
                                             </div>
                                         </button>
                                     ))}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 )}
-            </div>
-          )}
+           </div>
 
-          {isMain && onOpenTemplates && (
-            <button 
-              onClick={() => {
-                  playClick(700);
-                  onOpenTemplates();
-              }}
-              className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 mb-1 border
-                 ${isLight 
-                    ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
-                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
-              `}
-              title="Templates"
-            >
-              <Layout size={14} /> <span className="hidden sm:inline">Templates</span>
-            </button>
-          )}
+           {/* Right Section: Actions */}
+           <div className="flex items-center gap-3">
+                {isMain && (
+                    <div className="flex items-center gap-1 relative" ref={historyRef}>
+                        <button 
+                            onClick={toggleHistory}
+                            className={`p-2 rounded-lg transition-all border
+                                ${isLight 
+                                ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
+                                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                                ${showHistory ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
+                            `}
+                            title="History"
+                        >
+                            <History size={16} />
+                        </button>
+                        
+                        {/* History Dropdown (Upwards) */}
+                        {showHistory && (
+                            <div className={`absolute bottom-full right-0 mb-2 w-72 rounded-xl shadow-2xl border backdrop-blur-md z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-right
+                                ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
+                            `}>
+                                <div className={`p-3 border-b flex items-center justify-between ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">History</span>
+                                    {historyItems.length > 0 && <button onClick={handleClearHistory} className="text-[10px] text-red-400 hover:underline">Clear</button>}
+                                </div>
+                                <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                                    {historyItems.length === 0 ? <div className="p-4 text-center text-xs text-gray-500">Empty</div> : (
+                                        <div className="py-1">
+                                            {historyItems.map((item, idx) => (
+                                                <button key={idx} onClick={() => handleSelectHistory(item)} className={`w-full text-left px-4 py-2 text-xs border-b last:border-0 border-white/5 ${isLight ? 'text-slate-600 hover:bg-slate-50' : 'text-gray-300 hover:bg-white/5'}`}>
+                                                    <span className="line-clamp-2">{item}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
-          {isMain && onGenerate && (
-            <button 
-              onClick={onGenerate}
-              disabled={isLoading}
-              className={`w-full h-[80px] px-6 py-2 rounded-lg relative overflow-hidden transition-all shadow-lg shadow-purple-900/40 flex flex-col items-center justify-center mb-1
-                ${isLoading 
-                    ? (isLight ? 'bg-slate-200 cursor-not-allowed' : 'bg-[#1a1f3d] cursor-not-allowed')
-                    : 'bg-gradient-to-br from-fuchsia-500 to-purple-600 hover:scale-105 hover:shadow-purple-500/30'
-                }
-              `}
-            >
-              {isLoading ? (
-                <>
-                    {/* Progress Bar Background */}
-                    <div className="absolute bottom-0 left-0 h-1.5 bg-black/20 w-full" />
-                    <div 
-                        className="absolute bottom-0 left-0 h-1.5 bg-gradient-to-r from-cyan-400 to-purple-400 transition-all duration-300 ease-out"
-                        style={{ width: `${progress}%` }}
-                    />
-                    
-                    {/* Floating Particles/Glow */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 animate-[shimmer_2s_infinite]" />
-
-                    <div className="flex flex-col items-center gap-1 z-10">
-                        <div className="flex items-center gap-2">
-                            {mode === 'video' ? <Film size={16} className={`animate-pulse ${isLight ? 'text-purple-600' : 'text-cyan-400'}`} /> : <Sparkles size={16} className={`animate-spin ${isLight ? 'text-purple-600' : 'text-cyan-400'}`} />}
-                            <span className={`text-xs font-bold uppercase tracking-widest ${isLight ? 'text-slate-700' : 'text-cyan-100'}`}>
-                                {Math.round(progress)}%
-                            </span>
-                        </div>
-                        <span className={`text-[10px] font-mono opacity-80 ${isLight ? 'text-slate-600' : 'text-gray-300'}`}>
-                            {loadingText}
-                        </span>
+                        {onOpenTemplates && (
+                            <button 
+                                onClick={() => { playClick(700); onOpenTemplates(); }}
+                                className={`p-2 rounded-lg transition-all border
+                                    ${isLight 
+                                    ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
+                                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                                `}
+                                title="Templates"
+                            >
+                                <Layout size={16} />
+                            </button>
+                        )}
                     </div>
-                </>
-              ) : (
-                <>
-                    <span className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                        {mode === 'video' ? <Film size={16} /> : <Wand2 size={16} />} Generate
-                    </span>
-                </>
-              )}
-            </button>
-          )}
+                )}
 
-          <button 
-            onClick={() => {
-                playClick(400);
-                onClear();
-            }}
-            className={`w-full min-h-[40px] px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider opacity-90 hover:opacity-100 transition-all shadow-lg flex items-center justify-center
-              ${isMain 
-                ? 'bg-gradient-to-br from-cyan-500 to-cyan-700 text-white shadow-cyan-500/20' 
-                : 'bg-gradient-to-br from-cyan-400 to-cyan-600 text-white shadow-cyan-900/20'
-              }
-            `}
-          >
-            Clear
-          </button>
-          
-        </div>
+                <div className={`h-6 w-px mx-1 ${isLight ? 'bg-slate-200' : 'bg-white/10'}`}></div>
+
+                <button 
+                    onClick={() => { playClick(400); onClear(); }}
+                    className={`p-2 rounded-lg transition-all hover:scale-110 text-gray-400 hover:text-red-400`}
+                    title="Clear Prompt"
+                >
+                    <Trash2 size={16} />
+                </button>
+
+                {isMain && onGenerate && (
+                    <button 
+                        onClick={onGenerate}
+                        disabled={isLoading}
+                        className={`px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wider text-white shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2
+                            ${isLoading 
+                                ? 'bg-gray-700 cursor-not-allowed' 
+                                : 'bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 shadow-purple-900/30'}
+                        `}
+                    >
+                        {isLoading ? (
+                            <>
+                                {mode === 'video' ? <Film size={16} className="animate-pulse" /> : <Sparkles size={16} className="animate-spin" />}
+                                <span className="hidden sm:inline">{Math.round(progress)}%</span>
+                            </>
+                        ) : (
+                            <>
+                                {mode === 'video' ? <Film size={16} /> : <Wand2 size={16} />}
+                                <span className="hidden sm:inline">Generate</span>
+                            </>
+                        )}
+                    </button>
+                )}
+           </div>
       </div>
     </div>
   );
