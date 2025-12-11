@@ -123,6 +123,20 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                 console.warn("Failed to convert blob to base64 for storage", err);
                 // Continue trying to save original url, though it might expire
             }
+        } else if (storageImage.type === 'video' && storageImage.url.startsWith('http')) {
+            // Attempt to fetch remote video to cache it
+            // If CORS fails, we simply keep the remote URL and don't crash
+            try {
+                const response = await fetch(storageImage.url);
+                if (response.ok) {
+                     const blob = await response.blob();
+                     const base64 = await blobToBase64(blob);
+                     storageImage.url = base64;
+                }
+            } catch (err) {
+                console.warn("Could not cache video to IDB (likely CORS). Saved as remote link.", err);
+                // We do NOT throw here. We save the remote URL so the user can at least view it for now.
+            }
         }
 
         const tx = db.transaction(GALLERY_STORE_NAME, 'readwrite');

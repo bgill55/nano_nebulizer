@@ -521,20 +521,26 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
             const separator = videoUri.includes('?') ? '&' : '?';
             const fetchUrl = `${videoUri}${separator}key=${apiKey}`;
 
-            const videoResponse = await fetch(fetchUrl);
-            
-            // CRITICAL FIX: Check if the response is valid (200 OK)
-            // If the key is invalid or url expired, this returns 400/403 with text body, not video blob.
-            if (!videoResponse.ok) {
-                let errorDetails = '';
-                try {
-                     errorDetails = await videoResponse.text();
-                } catch (e) {}
-                throw new Error(`Video generation successful, but download failed (${videoResponse.status}). ${errorDetails}`);
+            try {
+                // Try to fetch as blob (Ideal)
+                const videoResponse = await fetch(fetchUrl);
+                
+                // CRITICAL FIX: Check if the response is valid (200 OK)
+                if (!videoResponse.ok) {
+                   throw new Error(`Fetch failed: ${videoResponse.status}`);
+                }
+    
+                const videoBlob = await videoResponse.blob();
+                // FORCE MP4 MIME TYPE: Browser sometimes fails to detect type from raw bytes
+                const mp4Blob = new Blob([videoBlob], { type: 'video/mp4' });
+                return URL.createObjectURL(mp4Blob);
+                
+            } catch (e) {
+                // FALLBACK: Return the direct authenticated URL
+                // This handles CORS issues where fetch() fails but <video src="..."> might succeed
+                console.warn("Direct video blob fetch failed (likely CORS). Falling back to remote URL.", e);
+                return fetchUrl;
             }
-
-            const videoBlob = await videoResponse.blob();
-            return URL.createObjectURL(videoBlob);
         }
 
         throw new Error("Video generation completed but no URI returned.");
