@@ -11,9 +11,9 @@ import TemplateModal from './components/TemplateModal';
 import SettingsModal from './components/SettingsModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
-import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID } from './services/storageService';
-import { playPowerUp, playSuccess, playError } from './services/audioService';
-import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info } from 'lucide-react';
+import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey } from './services/storageService';
+import { playPowerUp, playSuccess, playError, playClick } from './services/audioService';
+import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut } from 'lucide-react';
 
 const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, bad anatomy, ugly, pixelated, watermark, text, signature, worst quality, deformed, disfigured, cropped, mutation, bad proportions, extra limbs, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck";
 
@@ -47,6 +47,8 @@ const App: React.FC = () => {
   const [notification, setNotification] = useState<{message: string, type: 'info' | 'success' | 'warning' | 'error'} | null>(null);
   const [showFreeTierSuggestion, setShowFreeTierSuggestion] = useState(false);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
+  // Manual Key Input State
+  const [manualKey, setManualKey] = useState('');
   
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
@@ -62,11 +64,19 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      if (window.aistudio && window.aistudio.hasSelectedApiKey) {
+      // 1. Check Env
+      if (process.env.API_KEY) {
+          setHasKey(true);
+      } 
+      // 2. Check AI Studio (Dev Env)
+      else if (window.aistudio && window.aistudio.hasSelectedApiKey) {
         const has = await window.aistudio.hasSelectedApiKey();
         setHasKey(has);
-      } else {
-        setHasKey(true);
+      } 
+      // 3. Check LocalStorage (Deployed Env)
+      else {
+        const stored = getStoredApiKey();
+        setHasKey(!!stored);
       }
       
       const imgs = await getGallery();
@@ -134,6 +144,7 @@ const App: React.FC = () => {
   };
 
   const handleApiKeySelect = async () => {
+    // If in development (AI Studio), use the native picker
     if (window.aistudio) {
       try {
         await window.aistudio.openSelectKey();
@@ -143,7 +154,22 @@ const App: React.FC = () => {
       } catch (e) {
         console.error("Key selection failed", e);
       }
+    } else {
+        // In deployment, remove key and force re-entry
+        removeStoredApiKey();
+        setHasKey(false);
     }
+  };
+
+  const handleManualKeySubmit = () => {
+      if (manualKey.trim().length > 10) {
+          saveApiKey(manualKey.trim());
+          setHasKey(true);
+          playSuccess();
+      } else {
+          showNotification("Invalid API Key format", 'error');
+          playError();
+      }
   };
 
   const updateConfig = (key: keyof AppConfig, value: any) => {
@@ -265,7 +291,7 @@ const App: React.FC = () => {
              showNotification("Permission denied. This model requires a paid plan.", 'error');
              setShowFreeTierSuggestion(true);
           } else {
-             showNotification("Permission denied. Please select a valid API Key.", 'error');
+             showNotification("Permission denied. Please check your API Key.", 'error');
           }
       } else {
           showNotification(err.message || "Failed to generate. Please try again.", 'error');
@@ -418,15 +444,42 @@ const App: React.FC = () => {
               
               <div className="space-y-4">
                   <p className="text-gray-300 font-light text-lg">
-                    Connect your Google Cloud project to start generating art.
+                    {window.aistudio ? "Connect your Google Cloud project to start generating art." : "Enter your Google Gemini API Key to initialize the core."}
                   </p>
-                  <button 
-                      onClick={handleApiKeySelect}
-                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-bold text-white shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
-                  >
-                      <Key size={18} className="group-hover:rotate-12 transition-transform"/>
-                      Connect API Key
-                  </button>
+                  
+                  {window.aistudio ? (
+                    <button 
+                        onClick={handleApiKeySelect}
+                        className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-bold text-white shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+                    >
+                        <Key size={18} className="group-hover:rotate-12 transition-transform"/>
+                        Connect API Key
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                         <div className="relative">
+                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                            <input 
+                                type="password"
+                                placeholder="Paste API Key here..."
+                                value={manualKey}
+                                onChange={(e) => setManualKey(e.target.value)}
+                                className="w-full bg-[#131629] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:border-cyan-500 focus:outline-none transition-colors"
+                            />
+                         </div>
+                         <button 
+                            onClick={handleManualKeySubmit}
+                            disabled={!manualKey.trim()}
+                            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-bold text-white shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Zap size={18} />
+                            Initialize System
+                        </button>
+                        <p className="text-[10px] text-gray-500">
+                            Key is stored locally in your browser.
+                        </p>
+                    </div>
+                  )}
               </div>
            </div>
         </div>
@@ -551,13 +604,29 @@ const App: React.FC = () => {
 
       </main>
 
-      <div className="fixed bottom-6 left-6 z-40">
+      <div className="fixed bottom-6 left-6 z-40 flex flex-col gap-2">
+         {/* Logout Button (Only if stored key exists) */}
+         {!window.aistudio && getStoredApiKey() && (
+            <button 
+                onClick={handleApiKeySelect}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:scale-105 duration-300 group relative border
+                    ${isLight 
+                        ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' 
+                        : 'bg-red-900/50 border-red-500/30 text-red-400 hover:bg-red-900/80'}
+                `}
+                title="Disconnect API Key"
+            >
+                <LogOut size={20} />
+            </button>
+         )}
+
         <button 
             onClick={() => {
                 setConfig(DEFAULT_CONFIG);
                 setGeneratedImages(null);
                 setPreviewImage(null);
                 showNotification("All settings reset to default", 'info');
+                playClick();
             }}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:rotate-180 duration-500 group relative border
                 ${isLight 

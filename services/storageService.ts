@@ -6,6 +6,7 @@ const GALLERY_DB_NAME = 'nebula_gallery_db';
 const GALLERY_STORE_NAME = 'images';
 const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
+const API_KEY_STORAGE_KEY = 'nebula_api_key';
 const MAX_GALLERY_ITEMS = 20;
 const MAX_HISTORY_ITEMS = 20;
 
@@ -22,6 +23,32 @@ export const generateUUID = (): string => {
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
+};
+
+// --- API Key Management (BYOK) ---
+
+export const getStoredApiKey = (): string | null => {
+    try {
+        return localStorage.getItem(API_KEY_STORAGE_KEY);
+    } catch (e) {
+        return null;
+    }
+};
+
+export const saveApiKey = (key: string) => {
+    try {
+        localStorage.setItem(API_KEY_STORAGE_KEY, key);
+    } catch (e) {
+        console.error("Failed to save API key", e);
+    }
+};
+
+export const removeStoredApiKey = () => {
+    try {
+        localStorage.removeItem(API_KEY_STORAGE_KEY);
+    } catch (e) {
+        console.error("Failed to remove API key", e);
+    }
 };
 
 // --- Gallery Logic (IndexedDB) ---

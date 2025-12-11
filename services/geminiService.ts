@@ -1,11 +1,20 @@
 
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { AppConfig, ModelType } from "../types";
+import { getStoredApiKey } from "./storageService";
 
 const getClient = () => {
-    const apiKey = process.env.API_KEY;
+    // 1. Try Environment Variable (Build time)
+    let apiKey = process.env.API_KEY;
+    
+    // 2. Try Local Storage (Runtime / BYOK)
     if (!apiKey) {
-        throw new Error("API Key not found");
+        const storedKey = getStoredApiKey();
+        if (storedKey) apiKey = storedKey;
+    }
+
+    if (!apiKey) {
+        throw new Error("API Key not found. Please connect your Google Cloud API key in settings.");
     }
     return new GoogleGenAI({ apiKey });
 };
@@ -479,7 +488,14 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
         if (operation.response?.generatedVideos?.[0]?.video?.uri) {
             const videoUri = operation.response.generatedVideos[0].video.uri;
             // Fetch the actual video bytes using the API key
-            const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+            // Note: getClient has logic to throw if key is missing, so we access process.env.API_KEY OR local storage logic
+            // Since we are in the service, we can't easily reach getClient().apiKey if we didn't expose it.
+            // Better to re-fetch the key from storage or env:
+            const apiKey = process.env.API_KEY || getStoredApiKey();
+
+            if (!apiKey) throw new Error("API Key missing during video fetch");
+
+            const videoResponse = await fetch(`${videoUri}&key=${apiKey}`);
             const videoBlob = await videoResponse.blob();
             return URL.createObjectURL(videoBlob);
         }

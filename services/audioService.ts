@@ -18,8 +18,17 @@ const initAudio = () => {
     return { ctx: audioContext, master: masterGain };
 };
 
+// Helper for Haptics
+const vibrate = (pattern: number | number[]) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+    }
+};
+
 export const playClick = (pitch: number = 800) => {
     try {
+        vibrate(10); // Short tick
+
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;
 
@@ -67,6 +76,8 @@ export const playHover = () => {
 
 export const playPowerUp = () => {
     try {
+        vibrate([30, 30, 50]); // Revving engine feeling
+
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;
 
@@ -108,6 +119,8 @@ export const playPowerUp = () => {
 
 export const playSuccess = () => {
     try {
+        vibrate([50, 50, 50]); // Success pulse
+
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;
 
@@ -156,6 +169,8 @@ export const playSuccess = () => {
 
 export const playError = () => {
     try {
+        vibrate([50, 100, 50]); // Error buzz
+
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;
 
