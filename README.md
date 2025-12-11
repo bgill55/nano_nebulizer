@@ -5,7 +5,7 @@
 
 Nebula is a futuristic, high-performance web application designed to unleash the power of Google's latest Generative AI models. It combines a sci-fi aesthetic with professional-grade controls for Image and Video generation.
 
-![Nebula UI Preview]([https://via.placeholder.com/800x450?text=Nebula+AI+Interface](https://ibb.co/VcyKNhN)) 
+![Nebula UI Preview](https://ibb.co/VcyKNhNy) 
 
 
 ## 🚀 Key Features
