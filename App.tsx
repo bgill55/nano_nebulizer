@@ -11,7 +11,7 @@ import TemplateModal from './components/TemplateModal';
 import SettingsModal from './components/SettingsModal';
 import OnboardingModal from './components/OnboardingModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
-import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia } from './services/geminiService';
+import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia, describeImage, extractStyle } from './services/geminiService';
 import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen, isAccessGranted, grantAccess, revokeAccess, isLimitReached, incrementUsage } from './services/storageService';
 import { playPowerUp, playSuccess, playError, playClick } from './services/audioService';
 import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut, ShieldCheck, Lock } from 'lucide-react';
@@ -36,7 +36,8 @@ const DEFAULT_CONFIG: AppConfig = {
   theme: 'Nebula Dark',
   imageSize: '1K',
   inputImage: null,
-  batchSize: 1
+  batchSize: 1,
+  enableAutoSpeak: false
 };
 
 const App: React.FC = () => {
@@ -44,6 +45,7 @@ const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpscaling, setIsUpscaling] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isDescribing, setIsDescribing] = useState(false);
   
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[] | null>(null);
   
@@ -269,6 +271,66 @@ const App: React.FC = () => {
         showNotification("Failed to enhance prompt.", 'error');
     } finally {
         setIsEnhancing(false);
+    }
+  };
+
+  const handleDescribeImage = async () => {
+      if (!config.inputImage) return;
+      
+      if (isLimitReached()) {
+        showNotification("Daily Limit Reached.", 'error');
+        return;
+      }
+
+      setIsDescribing(true);
+      setNotification(null);
+      playClick();
+
+      try {
+          const description = await describeImage(config.inputImage);
+          updateConfig('prompt', description);
+          incrementUsage(); // Count as a usage
+          showNotification("Image analyzed! Prompt generated.", 'success');
+          playSuccess();
+      } catch (err: any) {
+          console.error(err);
+          showNotification("Failed to analyze image.", 'error');
+          playError();
+      } finally {
+          setIsDescribing(false);
+      }
+  };
+
+  const handleStealStyle = async () => {
+    if (!config.inputImage) return;
+
+    if (isLimitReached()) {
+      showNotification("Daily Limit Reached.", 'error');
+      return;
+    }
+
+    setIsDescribing(true); // Re-use loading state
+    setNotification(null);
+    playClick();
+
+    try {
+        const styleKeywords = await extractStyle(config.inputImage);
+        if (styleKeywords) {
+            const currentPrompt = config.prompt.trim();
+            const separator = currentPrompt ? ', ' : '';
+            updateConfig('prompt', `${currentPrompt}${separator}${styleKeywords}`);
+            incrementUsage(); 
+            showNotification("Artistic style extracted and applied.", 'success');
+            playSuccess();
+        } else {
+            showNotification("Could not identify specific style traits.", 'warning');
+        }
+    } catch (err: any) {
+        console.error(err);
+        showNotification("Style extraction failed.", 'error');
+        playError();
+    } finally {
+        setIsDescribing(false);
     }
   };
 
@@ -790,6 +852,9 @@ const App: React.FC = () => {
                             onStyleChange={(style) => updateConfig('style', style)}
                             negativeValue={config.negativePrompt}
                             onNegativeChange={(val) => updateConfig('negativePrompt', val)}
+                            onDescribe={handleDescribeImage}
+                            isDescribing={isDescribing}
+                            onStealStyle={handleStealStyle}
                         />
                     </div>
                 </div>
@@ -865,6 +930,7 @@ const App: React.FC = () => {
           onEdit={handleEdit}
           onShare={handleShare}
           initiallySaved={true} // AUTO-SAVED
+          enableAutoSpeak={config.enableAutoSpeak}
         />
       )}
 

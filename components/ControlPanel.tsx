@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppConfig, ModelType, AppTheme, GenerationMode } from '../types';
-import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon, Film } from 'lucide-react';
+import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon, Film, Volume2 } from 'lucide-react';
 import { playClick, playPowerUp } from '../services/audioService';
 
 interface ControlPanelProps {
@@ -742,26 +742,51 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                         isLight={isLight}
                     />
 
-                     <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between
-                        ${isLight ? 'bg-white border-slate-200' : 'bg-[#131629] border-white/5'}
-                     `}>
-                        <div className="flex justify-between items-center mb-4">
-                            <span className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}>
-                                <ShieldAlert size={14} className={isLight ? 'text-red-500' : 'text-red-400'} /> NSFW Filter
-                            </span>
-                            <button
-                                onClick={() => updateConfig('enableNSFW', !config.enableNSFW)}
-                                className={`w-12 h-6 rounded-full transition-colors relative
-                                    ${config.enableNSFW ? 'bg-red-500' : (isLight ? 'bg-slate-200' : 'bg-gray-700')}
-                                `}
-                            >
-                                <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${config.enableNSFW ? 'translate-x-6' : ''}`} />
-                            </button>
+                    <div className="space-y-4">
+                         {/* NSFW Toggle */}
+                        <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between
+                            ${isLight ? 'bg-white border-slate-200' : 'bg-[#131629] border-white/5'}
+                        `}>
+                            <div className="flex justify-between items-center mb-4">
+                                <span className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}>
+                                    <ShieldAlert size={14} className={isLight ? 'text-red-500' : 'text-red-400'} /> NSFW Filter
+                                </span>
+                                <button
+                                    onClick={() => updateConfig('enableNSFW', !config.enableNSFW)}
+                                    className={`w-12 h-6 rounded-full transition-colors relative
+                                        ${config.enableNSFW ? 'bg-red-500' : (isLight ? 'bg-slate-200' : 'bg-gray-700')}
+                                    `}
+                                >
+                                    <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${config.enableNSFW ? 'translate-x-6' : ''}`} />
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                Allow potentially mature content. Use with caution.
+                            </p>
                         </div>
-                        <p className="text-xs text-gray-500">
-                            Allow potentially mature content. Use with caution.
-                        </p>
-                     </div>
+                        
+                        {/* Auto-Speak Toggle */}
+                        <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between
+                            ${isLight ? 'bg-white border-slate-200' : 'bg-[#131629] border-white/5'}
+                        `}>
+                            <div className="flex justify-between items-center mb-4">
+                                <span className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}>
+                                    <Volume2 size={14} className={isLight ? 'text-cyan-500' : 'text-cyan-400'} /> Auto-Narrate
+                                </span>
+                                <button
+                                    onClick={() => updateConfig('enableAutoSpeak', !config.enableAutoSpeak)}
+                                    className={`w-12 h-6 rounded-full transition-colors relative
+                                        ${config.enableAutoSpeak ? 'bg-cyan-500' : (isLight ? 'bg-slate-200' : 'bg-gray-700')}
+                                    `}
+                                >
+                                    <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${config.enableAutoSpeak ? 'translate-x-6' : ''}`} />
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                Automatically generate and read aloud the neural backstory after image generation (Gemini TTS).
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="pt-6 border-t border-white/5">

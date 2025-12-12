@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Dices, Film, Mic, MicOff, Palette, BrainCircuit, ShieldBan, Plus, ChevronUp, ChevronDown, FileJson, Video, Move, ZoomIn, Camera } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Dices, Film, Mic, MicOff, Palette, BrainCircuit, ShieldBan, Plus, ChevronUp, ChevronDown, FileJson, Video, Move, ZoomIn, Camera, ScanEye, Loader2, Pipette } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 import { playClick, playHover, playSuccess } from '../services/audioService';
 import { detectStyleFromPrompt } from '../services/geminiService';
@@ -28,6 +28,11 @@ interface PromptInputProps {
   // Integrated Negative Prompt Props
   negativeValue?: string;
   onNegativeChange?: (value: string) => void;
+  // Image to Prompt
+  onDescribe?: () => void;
+  isDescribing?: boolean;
+  // Style Transfer
+  onStealStyle?: () => void;
 }
 
 const LOADING_PHASES = [
@@ -170,7 +175,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
   currentStyle = 'None',
   onStyleChange,
   negativeValue,
-  onNegativeChange
+  onNegativeChange,
+  onDescribe,
+  isDescribing = false,
+  onStealStyle
 }) => {
   const isLight = theme === 'Starlight Light';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -568,7 +576,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
           {/* Image Preview Area */}
           {inputImage && (
-            <div className="absolute bottom-16 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-16 left-6 z-10 animate-in fade-in slide-in-from-bottom-2 flex items-end gap-2">
               <div className={`relative group/image inline-block rounded-lg overflow-hidden border shadow-lg
                    ${isLight ? 'border-slate-200 bg-slate-100' : 'border-white/10 bg-black/40'}
               `}>
@@ -587,6 +595,40 @@ const PromptInput: React.FC<PromptInputProps> = ({
                   <X size={10} />
                 </button>
               </div>
+
+              {/* Describe/Scan Button */}
+              {onDescribe && (
+                <button
+                    onClick={onDescribe}
+                    disabled={isDescribing}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border shadow-lg
+                        ${isLight 
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100' 
+                            : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/30 hover:border-indigo-500/50'}
+                    `}
+                    title="Describe Image (Reverse Prompt)"
+                >
+                    {isDescribing ? <Loader2 className="animate-spin" size={14} /> : <ScanEye size={14} />}
+                    <span className="hidden sm:inline">{isDescribing ? 'Scanning...' : 'Describe'}</span>
+                </button>
+              )}
+
+              {/* Steal Style Button */}
+              {onStealStyle && (
+                  <button
+                    onClick={onStealStyle}
+                    disabled={isDescribing}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border shadow-lg
+                        ${isLight 
+                            ? 'bg-pink-50 border-pink-200 text-pink-600 hover:bg-pink-100' 
+                            : 'bg-pink-500/20 border-pink-500/30 text-pink-300 hover:bg-pink-500/30 hover:border-pink-500/50'}
+                    `}
+                    title="Extract Art Style (Steal Style)"
+                  >
+                      <Pipette size={14} />
+                      <span className="hidden sm:inline">Steal Style</span>
+                  </button>
+              )}
             </div>
           )}
       </div>

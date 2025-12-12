@@ -25,6 +25,7 @@ export interface AppConfig {
     imageSize: '1K' | '2K' | '4K';
     inputImage?: string | null; // Base64 data URL
     batchSize: number; // 1-4
+    enableAutoSpeak: boolean; // Voice Mode 2.0
 }
 
 export interface GeneratedImage {

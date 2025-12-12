@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square, Maximize2, AlertCircle, GitCompare } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import HolographicCard from './HolographicCard';
 import CompareModal from './CompareModal';
-import { generateBackstory } from '../services/geminiService';
+import { generateBackstory, generateSpeech, playAudioData } from '../services/geminiService';
 import { playClick, playSuccess } from '../services/audioService';
 
 interface GeneratedImageModalProps {
@@ -18,6 +18,7 @@ interface GeneratedImageModalProps {
   onEdit?: (image: GeneratedImage) => void;
   onShare?: (image: GeneratedImage) => void;
   initiallySaved?: boolean;
+  enableAutoSpeak?: boolean; // New prop for Voice Mode 2.0
 }
 
 const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({ 
@@ -30,7 +31,8 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   onVariations,
   onEdit,
   onShare,
-  initiallySaved = false
+  initiallySaved = false,
+  enableAutoSpeak = false
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   
@@ -49,7 +51,10 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   const [backstories, setBackstories] = useState<Record<string, string>>({});
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [revealStory, setRevealStory] = useState(false);
+  
+  // Audio State
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const audioSourceRef = useRef<{ stop: () => void } | null>(null);
 
   // Glitch Reveal State
   const [isRevealed, setIsRevealed] = useState(false);
@@ -84,11 +89,24 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
     return () => clearTimeout(timer);
   }, [selectedIndex]);
 
+  // Voice Mode 2.0: Auto-Narrate Logic
   useEffect(() => {
-    // Stop speech when closing or changing images
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
+      const currentImage = images[selectedIndex];
+      
+      // Stop any existing audio
+      if (audioSourceRef.current) {
+          audioSourceRef.current.stop();
+          audioSourceRef.current = null;
+          setIsSpeaking(false);
+      }
+      
+      // Auto-trigger only if: enabled, initially saved (new gen), story not yet generated, and not video
+      if (enableAutoSpeak && initiallySaved && !backstories[currentImage.id] && currentImage.type !== 'video' && !isGeneratingStory) {
+          handleGenerateBackstory(true); // true = autoPlay
+      }
+  }, [selectedIndex, images, enableAutoSpeak, initiallySaved]);
 
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (isUpscaling) return;
         
@@ -105,7 +123,9 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
-        window.speechSynthesis.cancel();
+        if (audioSourceRef.current) {
+            audioSourceRef.current.stop();
+        }
     };
   }, [images, isUpscaling, onClose, isFullscreen]);
 
@@ -152,20 +172,25 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
       setFeedbackMap(prev => ({ ...prev, [currentImage.id]: type }));
   };
 
-  const handleGenerateBackstory = async () => {
+  const handleGenerateBackstory = async (autoPlay = false) => {
       if (backstories[currentImage.id]) {
           setRevealStory(!revealStory);
           return;
       }
       
-      playClick();
+      if (!autoPlay) playClick();
       setIsGeneratingStory(true);
       setRevealStory(true);
       
       try {
           const story = await generateBackstory(currentImage.url, currentImage.prompt);
           setBackstories(prev => ({ ...prev, [currentImage.id]: story }));
-          playSuccess();
+          
+          if (!autoPlay) playSuccess();
+
+          if (autoPlay) {
+              await speakText(story);
+          }
       } catch (e) {
           console.error(e);
       } finally {
@@ -173,28 +198,32 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
       }
   };
 
-  const toggleSpeech = () => {
-      playClick();
-      if (isSpeaking) {
-          window.speechSynthesis.cancel();
+  const speakText = async (text: string) => {
+      if (!text) return;
+      
+      // If already speaking, stop
+      if (isSpeaking && audioSourceRef.current) {
+          audioSourceRef.current.stop();
           setIsSpeaking(false);
-      } else {
-          const text = backstories[currentImage.id];
-          if (!text) return;
+          return;
+      }
 
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.pitch = 0.8; // Lower pitch for sci-fi feel
-          utterance.rate = 0.9;  // Slightly slower
+      setIsSpeaking(true);
+      try {
+          // 1. Get raw PCM base64 from Gemini TTS
+          const base64Audio = await generateSpeech(text);
+          // 2. Play using Web Audio API
+          const source = await playAudioData(base64Audio);
+          audioSourceRef.current = source;
           
-          // Try to find a good voice
-          const voices = window.speechSynthesis.getVoices();
-          const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Microsoft David'));
-          if (preferredVoice) utterance.voice = preferredVoice;
+          // Auto-reset state after duration
+          setTimeout(() => {
+              if (isSpeaking) setIsSpeaking(false);
+          }, source.duration * 1000);
 
-          utterance.onend = () => setIsSpeaking(false);
-          
-          window.speechSynthesis.speak(utterance);
-          setIsSpeaking(true);
+      } catch (e) {
+          console.error("Speech failed", e);
+          setIsSpeaking(false);
       }
   };
 
@@ -359,7 +388,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                             <button 
                                 onClick={() => {
                                     setRevealStory(false);
-                                    window.speechSynthesis.cancel();
+                                    if (audioSourceRef.current) audioSourceRef.current.stop();
                                     setIsSpeaking(false);
                                 }}
                                 className="absolute top-2 right-2 p-1 text-gray-500 hover:text-white transition-colors"
@@ -378,7 +407,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                                         </h4>
                                         {!isGeneratingStory && (
                                             <button 
-                                                onClick={toggleSpeech}
+                                                onClick={() => speakText(backstories[currentImage.id])}
                                                 className={`p-1 rounded hover:bg-cyan-500/20 transition-colors ${isSpeaking ? 'text-cyan-400 animate-pulse' : 'text-gray-500 hover:text-cyan-400'}`}
                                                 title={isSpeaking ? "Stop Reading" : "Read Aloud"}
                                             >
@@ -422,7 +451,7 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                 {/* Neural Link Button */}
                 {!isVideo && (
                     <button 
-                        onClick={handleGenerateBackstory}
+                        onClick={() => handleGenerateBackstory()}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border mr-auto
                              ${revealStory 
                                 ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' 

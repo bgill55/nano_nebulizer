@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Modality } from "@google/genai";
 import { AppConfig, ModelType } from "../types";
 import { getStoredApiKey } from "./storageService";
 
@@ -176,6 +176,161 @@ export const enhancePrompt = async (input: string, style: string = 'None'): Prom
         console.error("Prompt Enhancement Failed:", error);
         // Graceful fallback
         return cleanedInput; 
+    }
+};
+
+export const describeImage = async (imageBase64: string): Promise<string> => {
+    const ai = getClient();
+    const model = 'gemini-3-pro-preview'; // Gemini 3 Pro has excellent vision capabilities
+
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+
+    const prompt = `
+    You are an expert Prompt Engineer for AI Art Generators.
+    Analyze the uploaded image and reverse-engineer a high-quality text prompt that would generate an image looking exactly like this one.
+    
+    Include specific details about:
+    1. Subject matter and action
+    2. Art Style (e.g. Cyberpunk, Oil Painting, Anime, Photography)
+    3. Lighting and Color Palette
+    4. Composition and Camera angle
+    5. Technical keywords (e.g. 4k, octane render, depth of field)
+
+    Output ONLY the raw prompt text. Do not add conversational filler.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                parts: [
+                    { text: prompt },
+                    { inlineData: { mimeType: mimeType, data: base64Data } }
+                ]
+            }
+        });
+        
+        return response.text?.trim() || "Failed to analyze image.";
+    } catch (error) {
+        console.error("Describe Image Error:", error);
+        throw error;
+    }
+};
+
+export const extractStyle = async (imageBase64: string): Promise<string> => {
+    const ai = getClient();
+    const model = 'gemini-3-pro-preview';
+
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+
+    const prompt = `
+    Analyze the uploaded image. Extract ONLY the artistic style descriptors, visual technique, medium, and lighting keywords.
+    Do NOT describe the subject content (e.g. ignore "a woman", "a car", "a building").
+    
+    Focus on:
+    - Art Medium (e.g. "Oil painting", "3D Render", "Polaroid photo")
+    - Aesthetic (e.g. "Cyberpunk", "Vaporwave", "Minimalist")
+    - Lighting/Color (e.g. "Neon lighting", "Pastel palette", "High contrast")
+    - Technique (e.g. "Impasto", "Cel shaded", "Bokeh")
+    
+    Format: Comma-separated list of keywords.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                parts: [
+                    { text: prompt },
+                    { inlineData: { mimeType: mimeType, data: base64Data } }
+                ]
+            }
+        });
+        return response.text?.trim() || "";
+    } catch (error) {
+        console.error("Style Extraction Error:", error);
+        return "";
+    }
+};
+
+// --- AUDIO / TTS ---
+
+// Helper for PCM decoding
+const decodeBase64 = (base64: string): Uint8Array => {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+};
+
+const rawDataToAudioBuffer = async (pcmData: Uint8Array, sampleRate = 24000): Promise<AudioBuffer> => {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate });
+    
+    // Convert 16-bit PCM to Float32
+    const inputData = new Int16Array(pcmData.buffer);
+    const float32Data = new Float32Array(inputData.length);
+    for (let i = 0; i < inputData.length; i++) {
+        float32Data[i] = inputData[i] / 32768.0;
+    }
+
+    const buffer = audioCtx.createBuffer(1, float32Data.length, sampleRate);
+    buffer.getChannelData(0).set(float32Data);
+    return buffer;
+};
+
+export const generateSpeech = async (text: string): Promise<string> => {
+    // Returns a Base64 string of the PCM data from Gemini TTS
+    const ai = getClient();
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' },
+                    },
+                },
+            },
+        });
+
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) throw new Error("No audio data returned");
+        return base64Audio;
+    } catch (error) {
+        console.error("TTS Generation Error:", error);
+        throw error;
+    }
+};
+
+export const playAudioData = async (base64PCM: string) => {
+    try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+
+        const pcmBytes = decodeBase64(base64PCM);
+        const buffer = await rawDataToAudioBuffer(pcmBytes, 24000);
+        
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start();
+        
+        return {
+            stop: () => source.stop(),
+            duration: buffer.duration
+        };
+    } catch (e) {
+        console.error("Audio Playback Error:", e);
+        throw e;
     }
 };
 
