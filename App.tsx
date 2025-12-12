@@ -510,12 +510,16 @@ const App: React.FC = () => {
       };
 
       setGeneratedImages(prev => {
-          if (!prev) return null;
-          return prev.map(img => 
-              img.id === targetImage.id 
-              ? newImage
-              : img
-          );
+          if (!prev) return [newImage];
+          // NON-DESTRUCTIVE INSERT:
+          // Insert the upscaled image RIGHT AFTER the original, preserving the original
+          const index = prev.findIndex(img => img.id === targetImage.id);
+          if (index !== -1) {
+              const newList = [...prev];
+              newList.splice(index + 1, 0, newImage);
+              return newList;
+          }
+          return [...prev, newImage];
       });
       
       // Auto-save Upscaled Result
@@ -524,7 +528,7 @@ const App: React.FC = () => {
       incrementUsage(); // Upscale counts as generation
 
       playSuccess();
-      showNotification("Image upscaled to 4K resolution.", 'success');
+      showNotification("Image upscaled to 4K. Added to batch.", 'success');
       
     } catch (err: any) {
       console.error(err);

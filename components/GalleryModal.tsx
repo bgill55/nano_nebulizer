@@ -106,6 +106,12 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
           </div>
           
           <div className="flex items-center gap-4">
+              {selectionMode && selectedIds.size !== 2 && (
+                  <span className="text-xs text-cyan-500 animate-pulse font-medium hidden sm:inline-block">
+                      Select {2 - selectedIds.size} more...
+                  </span>
+              )}
+
               {selectionMode && selectedIds.size === 2 && (
                   <button 
                     onClick={() => setIsCompareOpen(true)}

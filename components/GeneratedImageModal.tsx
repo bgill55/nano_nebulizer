@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square, Maximize2, AlertCircle } from 'lucide-react';
+import { X, Download, Share2, Sparkles, Loader2, Bookmark, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Layers, Video, Edit2, BrainCircuit, Terminal, Volume2, Square, Maximize2, AlertCircle, GitCompare } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import HolographicCard from './HolographicCard';
+import CompareModal from './CompareModal';
 import { generateBackstory } from '../services/geminiService';
 import { playClick, playSuccess } from '../services/audioService';
 
@@ -55,6 +56,9 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
   
   // Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Compare State
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
 
   // Video Error State
   const [videoError, setVideoError] = useState(false);
@@ -196,6 +200,8 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
 
   const nextImage = () => { playClick(700); setSelectedIndex(prev => (prev + 1) % images.length); };
   const prevImage = () => { playClick(700); setSelectedIndex(prev => (prev - 1 + images.length) % images.length); };
+
+  const canCompare = images.length > 1 && selectedIndex > 0;
 
   return (
     <>
@@ -429,6 +435,17 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
                     </button>
                 )}
 
+                {canCompare && (
+                    <button 
+                        onClick={() => setIsCompareOpen(true)}
+                        className="flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-cyan-500/30 rounded-lg text-sm font-medium transition-all text-cyan-200"
+                        title="Compare with previous version"
+                    >
+                        <GitCompare size={16} />
+                        <span className="hidden sm:inline">Compare</span>
+                    </button>
+                )}
+
                 {!isVideo && onEdit && (
                      <button 
                         onClick={handleEdit}
@@ -516,6 +533,14 @@ const GeneratedImageModal: React.FC<GeneratedImageModalProps> = ({
               />
           </div>
       )}
+
+      {/* Integrated Compare Modal */}
+      <CompareModal 
+         isOpen={isCompareOpen}
+         onClose={() => setIsCompareOpen(false)}
+         imageA={images[selectedIndex - 1]} // Previous (Original)
+         imageB={images[selectedIndex]}     // Current (Upscaled)
+      />
 
     </div>
     </>
