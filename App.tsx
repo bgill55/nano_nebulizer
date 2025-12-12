@@ -784,19 +784,9 @@ const App: React.FC = () => {
                             isEnhancing={isEnhancing}
                             currentStyle={config.style}
                             onStyleChange={(style) => updateConfig('style', style)}
+                            negativeValue={config.negativePrompt}
+                            onNegativeChange={(val) => updateConfig('negativePrompt', val)}
                         />
-
-                        {config.mode === 'image' && (
-                        <PromptInput 
-                            label="Negative Prompt"
-                            placeholder="Describe what you don't want in the image..." 
-                            value={config.negativePrompt}
-                            onChange={(val) => updateConfig('negativePrompt', val)}
-                            onClear={() => updateConfig('negativePrompt', '')}
-                            theme={config.theme}
-                            isNegative={true}
-                        />
-                        )}
                     </div>
                 </div>
                 </div>

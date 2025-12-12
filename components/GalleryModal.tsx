@@ -1,8 +1,9 @@
 
-import React from 'react';
-import { X, Trash2, Copy, Zap, Calendar, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Trash2, Copy, Zap, Calendar, Download, GitCompare } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import HolographicCard from './HolographicCard';
+import CompareModal from './CompareModal';
 
 interface GalleryModalProps {
   isOpen: boolean;
@@ -19,7 +20,32 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   onDelete, 
   onSelect 
 }) => {
-  if (!isOpen) return null;
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+        setIsCompareOpen(false);
+    }
+  }, [isOpen]);
+
+  const handleToggleSelect = (id: string) => {
+      const newSet = new Set(selectedIds);
+      if (newSet.has(id)) {
+          newSet.delete(id);
+      } else {
+          if (newSet.size >= 2) {
+             // If already 2, replace the first one
+             const it = newSet.values();
+             newSet.delete(it.next().value);
+          }
+          newSet.add(id);
+      }
+      setSelectedIds(newSet);
+  };
 
   const handleDownload = (img: GeneratedImage) => {
       const link = document.createElement('a');
@@ -30,7 +56,21 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
       document.body.removeChild(link);
   };
 
+  const getComparisonImages = () => {
+      const ids = Array.from(selectedIds);
+      if (ids.length !== 2) return { a: null, b: null };
+      
+      const imgA = images.find(i => i.id === ids[0]) || null;
+      const imgB = images.find(i => i.id === ids[1]) || null;
+      return { a: imgA, b: imgB };
+  };
+
+  if (!isOpen) return null;
+
+  const { a: compareA, b: compareB } = getComparisonImages();
+
   return (
+    <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
@@ -43,20 +83,44 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
         
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/5 bg-[#131629]">
-          <div>
-            <h3 className="text-xl font-rajdhani font-bold text-white flex items-center gap-2">
-              <span className="text-cyan-400">///</span> Gallery
-            </h3>
-            <p className="text-xs text-gray-400 mt-1">
-              Locally stored history (Max 20 items)
-            </p>
+          <div className="flex items-center gap-4">
+            <div>
+                <h3 className="text-xl font-rajdhani font-bold text-white flex items-center gap-2">
+                <span className="text-cyan-400">///</span> Gallery
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                Locally stored history (Max 20 items)
+                </p>
+            </div>
+            
+            <button 
+                onClick={() => setSelectionMode(!selectionMode)}
+                className={`ml-4 px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wider transition-colors
+                    ${selectionMode 
+                        ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' 
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}
+                `}
+            >
+                {selectionMode ? 'Done Selecting' : 'Select to Compare'}
+            </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-          >
-            <X size={20} className="text-gray-400 hover:text-white" />
-          </button>
+          
+          <div className="flex items-center gap-4">
+              {selectionMode && selectedIds.size === 2 && (
+                  <button 
+                    onClick={() => setIsCompareOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg text-white font-bold text-xs shadow-lg animate-in slide-in-from-right-4 fade-in"
+                  >
+                      <GitCompare size={16} /> Compare ({selectedIds.size})
+                  </button>
+              )}
+              <button 
+                onClick={onClose}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X size={20} className="text-gray-400 hover:text-white" />
+              </button>
+          </div>
         </div>
 
         {/* Grid Content */}
@@ -70,87 +134,115 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {images.map((img) => (
-                <HolographicCard 
-                  key={img.id} 
-                  className="rounded-xl overflow-hidden"
-                >
-                <div 
-                  className="group relative bg-[#131629] h-full flex flex-col border border-white/5"
-                >
-                  {/* Image Aspect Wrapper */}
-                  <div className="aspect-square relative overflow-hidden bg-black/20">
-                    {img.type === 'video' ? (
-                         <video src={img.url} className="w-full h-full object-cover opacity-80" muted loop onMouseOver={e => e.currentTarget.play()} onMouseOut={e => e.currentTarget.pause()} />
-                    ) : (
-                         <img 
-                            src={img.url} 
-                            alt={img.prompt}
-                            className="w-full h-full object-cover"
-                         />
-                    )}
-                    
-                    {/* Overlay Actions */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                      <div className="flex gap-2 justify-center mb-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
-                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onSelect(img);
-                            }}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg"
-                            title="Reuse Settings"
-                         >
-                            <Zap size={14} /> Reuse
-                         </button>
-                         
-                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownload(img);
-                            }}
-                            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm border border-white/10"
-                            title="Download"
-                         >
-                            <Download size={14} />
-                         </button>
+              {images.map((img) => {
+                const isSelected = selectedIds.has(img.id);
+                
+                return (
+                <div key={img.id} className="relative group">
+                    <HolographicCard 
+                    className={`rounded-xl overflow-hidden transition-all duration-200
+                        ${isSelected ? 'ring-2 ring-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.3)] scale-[1.02]' : ''}
+                        ${selectionMode && !isSelected ? 'opacity-50 hover:opacity-100' : ''}
+                    `}
+                    isActive={!selectionMode} // Disable holographic tilt when selecting for clearer view
+                    >
+                        <div 
+                        className="relative bg-[#131629] h-full flex flex-col border border-white/5"
+                        onClick={() => selectionMode && handleToggleSelect(img.id)}
+                        >
+                            {/* Image Aspect Wrapper */}
+                            <div className="aspect-square relative overflow-hidden bg-black/20">
+                                {img.type === 'video' ? (
+                                    <video src={img.url} className="w-full h-full object-cover opacity-80" muted loop onMouseOver={e => e.currentTarget.play()} onMouseOut={e => e.currentTarget.pause()} />
+                                ) : (
+                                    <img 
+                                        src={img.url} 
+                                        alt={img.prompt}
+                                        className="w-full h-full object-cover"
+                                    />
+                                )}
+                                
+                                {/* Selection Checkbox Overlay */}
+                                {selectionMode && (
+                                    <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors z-20
+                                        ${isSelected ? 'bg-cyan-500 border-cyan-500' : 'bg-black/50 border-white/50'}
+                                    `}>
+                                        {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                                    </div>
+                                )}
+                                
+                                {/* Overlay Actions (Hidden in Selection Mode) */}
+                                {!selectionMode && (
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                    <div className="flex gap-2 justify-center mb-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelect(img);
+                                            }}
+                                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold uppercase tracking-wider shadow-lg"
+                                            title="Reuse Settings"
+                                        >
+                                            <Zap size={14} /> Reuse
+                                        </button>
+                                        
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDownload(img);
+                                            }}
+                                            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm border border-white/10"
+                                            title="Download"
+                                        >
+                                            <Download size={14} />
+                                        </button>
 
-                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(img.id);
-                            }}
-                            className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500 hover:text-white text-red-400 transition-colors backdrop-blur-sm border border-red-500/20"
-                            title="Delete"
-                         >
-                            <Trash2 size={14} />
-                         </button>
-                      </div>
-                    </div>
-                  </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(img.id);
+                                            }}
+                                            className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500 hover:text-white text-red-400 transition-colors backdrop-blur-sm border border-red-500/20"
+                                            title="Delete"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                    </div>
+                                )}
+                            </div>
 
-                  {/* Info Footer */}
-                  <div className="p-4 bg-[#131629]">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                         <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/5">
-                            {img.type === 'video' ? 'Video' : (img.style || 'No Style')}
-                         </span>
-                         <span className="text-[10px] text-gray-500 font-mono">
-                            {new Date(img.timestamp).toLocaleDateString()}
-                         </span>
-                    </div>
-                    <p className="text-sm text-gray-300 line-clamp-2 font-light leading-relaxed group-hover:text-white transition-colors">
-                        "{img.prompt}"
-                    </p>
-                  </div>
+                            {/* Info Footer */}
+                            <div className="p-4 bg-[#131629]">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/5">
+                                        {img.type === 'video' ? 'Video' : (img.style || 'No Style')}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 font-mono">
+                                        {new Date(img.timestamp).toLocaleDateString()}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-300 line-clamp-2 font-light leading-relaxed group-hover:text-white transition-colors">
+                                    "{img.prompt}"
+                                </p>
+                            </div>
+                        </div>
+                    </HolographicCard>
                 </div>
-                </HolographicCard>
               ))}
             </div>
           )}
         </div>
       </div>
     </div>
+    
+    <CompareModal 
+        isOpen={isCompareOpen} 
+        onClose={() => setIsCompareOpen(false)}
+        imageA={compareA}
+        imageB={compareB}
+    />
+    </>
   );
 };
 

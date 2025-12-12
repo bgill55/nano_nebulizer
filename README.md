@@ -16,6 +16,7 @@ Nebula is a futuristic, high-performance web application designed to unleash the
 *   **Imagen 4**: Support for Google's dedicated high-quality image generation model.
 
 ### 🧠 Smart Prompting
+*   **Video Director Mode**: Dedicated camera control chips (Pan, Zoom, Orbit, FPV) appear in Video Mode to inject cinematic movements into your Veo prompts.
 *   **Magic Enhance**: One-click prompt engineering. Turns simple inputs (e.g., "A cat") into highly detailed, professional artistic descriptions using Gemini's reasoning capabilities.
 *   **The Stylenator**:
     *   **Smart Match**: AI analyzes your text and automatically selects the best art style (e.g., detects "neon" → switches to Cyberpunk).
@@ -40,6 +41,7 @@ Nebula is a futuristic, high-performance web application designed to unleash the
 *   **Dual Themes**: Switch between "Nebula Dark" (Sci-fi) and "Starlight Light" (Clean).
 
 ### 💾 Gallery & Storage
+*   **Holographic Comparator**: Select any two images in the gallery to open a side-by-side slider view for detailed pixel-peeping and A/B testing.
 *   **Local Gallery**: Persists images and videos using IndexedDB (browser storage) so you don't lose your work on refresh.
 *   **Prompt History**: Auto-saves your recent creative history for quick recall.
 *   **Upscaling**: Simulated 4K upscaling pipeline using Gemini Pro's image-to-image capabilities.

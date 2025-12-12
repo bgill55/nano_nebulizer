@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Clock, Dices, Film, Mic, MicOff, Palette, Check, BrainCircuit, ShieldBan, Plus, ChevronUp } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Dices, Film, Mic, MicOff, Palette, BrainCircuit, ShieldBan, Plus, ChevronUp, ChevronDown, FileJson, Video, Move, ZoomIn, Camera } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 import { playClick, playHover, playSuccess } from '../services/audioService';
 import { detectStyleFromPrompt } from '../services/geminiService';
@@ -25,7 +25,9 @@ interface PromptInputProps {
   isEnhancing?: boolean;
   currentStyle?: string;
   onStyleChange?: (style: string) => void;
-  isNegative?: boolean;
+  // Integrated Negative Prompt Props
+  negativeValue?: string;
+  onNegativeChange?: (value: string) => void;
 }
 
 const LOADING_PHASES = [
@@ -137,6 +139,17 @@ const NEGATIVE_PRESETS = [
     { label: "NSFW Filter", value: "nsfw, nude, naked, uncensored, violence, blood, gore, explicit" }
 ];
 
+const VIDEO_CAMERA_CONTROLS = [
+    { label: "Pan Left", value: "Camera pans left", icon: Move },
+    { label: "Pan Right", value: "Camera pans right", icon: Move },
+    { label: "Zoom In", value: "Slow zoom in", icon: ZoomIn },
+    { label: "Zoom Out", value: "Slow zoom out", icon: ZoomIn },
+    { label: "Drone", value: "Aerial drone shot", icon: Camera },
+    { label: "Orbit", value: "Camera orbits the subject", icon: Move },
+    { label: "FPV", value: "Fast FPV drone flythrough", icon: Video },
+    { label: "Tracking", value: "Camera tracks the subject", icon: Video },
+];
+
 const PromptInput: React.FC<PromptInputProps> = ({ 
   label,
   placeholder, 
@@ -156,7 +169,8 @@ const PromptInput: React.FC<PromptInputProps> = ({
   isEnhancing = false,
   currentStyle = 'None',
   onStyleChange,
-  isNegative = false
+  negativeValue,
+  onNegativeChange
 }) => {
   const isLight = theme === 'Starlight Light';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -179,6 +193,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
   // Negative Menu State
   const [showNegativeMenu, setShowNegativeMenu] = useState(false);
+  const [showNegativeInput, setShowNegativeInput] = useState(false);
   const negativeMenuRef = useRef<HTMLDivElement>(null);
   const [isAdded, setIsAdded] = useState(false);
 
@@ -188,6 +203,8 @@ const PromptInput: React.FC<PromptInputProps> = ({
   // Voice Input State
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  const isJson = value.trim().startsWith('{');
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -247,17 +264,11 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
       interval = setInterval(() => {
         const elapsed = Date.now() - startTime;
-        
-        // Asymptotic curve: fast start, slows down, never hits 100% until done
-        // Formula: 1 - e^(-t / duration)
         let nextProgress = (1 - Math.exp(-elapsed / (duration / 2))) * 100;
-        
-        // Cap at 98% until actually finished
         if (nextProgress > 98) nextProgress = 98;
         
         setProgress(nextProgress);
 
-        // Update Text Phase
         if (mode === 'image') {
             const phase = LOADING_PHASES.slice().reverse().find(phase => nextProgress >= phase.p);
             if (phase) setLoadingText(phase.text);
@@ -270,7 +281,6 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
       }, 100);
     } else {
-      // When loading finishes, jump to 100% briefly then reset
       if (progress > 0) {
         setProgress(100);
         setLoadingText("Complete!");
@@ -334,9 +344,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const handleAddNegativePreset = (presetValue: string) => {
-      if (!onChange) return;
+      if (!onNegativeChange) return;
       
-      const current = value.trim();
+      const current = negativeValue || '';
       let newValue = presetValue;
 
       // Don't duplicate if already exists roughly
@@ -350,20 +360,22 @@ const PromptInput: React.FC<PromptInputProps> = ({
           newValue = current + separator + presetValue;
       }
 
-      onChange(newValue);
+      onNegativeChange(newValue);
       playClick(800);
       setShowNegativeMenu(false);
+      setShowNegativeInput(true); // Auto-open if a preset is added
 
-      // Trigger Visual Feedback
       setIsAdded(true);
       setTimeout(() => setIsAdded(false), 500);
+  };
 
-      // Auto scroll to bottom to show appended text
-      setTimeout(() => {
-        if (textareaRef.current) {
-            textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
-        }
-      }, 50);
+  const handleAddCameraControl = (controlValue: string) => {
+      playClick(900);
+      const current = value || '';
+      if (current.includes(controlValue)) return; // Avoid dupe
+      
+      const separator = current.trim().length > 0 ? (current.endsWith('.') || current.endsWith(',') ? ' ' : ', ') : '';
+      onChange(`${current}${separator}${controlValue}`);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -371,7 +383,6 @@ const PromptInput: React.FC<PromptInputProps> = ({
       playClick(1200);
       onImageUpload(e.target.files[0]);
     }
-    // Reset value so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -411,32 +422,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const handleRandomStyle = () => {
-      if (isStyleRolling || !onStyleChange) return;
-      setIsStyleRolling(true);
-      playClick(1500);
-
-      let rolls = 0;
-      const maxRolls = 10;
-      const baseInterval = 60;
-
-      const shuffle = () => {
-          if (rolls >= maxRolls) {
-              const randomStyle = AVAILABLE_STYLES[Math.floor(Math.random() * AVAILABLE_STYLES.length)];
-              onStyleChange(randomStyle.value);
-              setIsStyleRolling(false);
-              playSuccess();
-              return;
-          }
-
-          const tempStyle = AVAILABLE_STYLES[Math.floor(Math.random() * AVAILABLE_STYLES.length)];
-          onStyleChange(tempStyle.value);
-          playHover();
-
-          rolls++;
-          setTimeout(shuffle, baseInterval + (rolls * 20));
-      };
-
-      shuffle();
+      if (!onStyleChange) return;
+      const randomStyle = AVAILABLE_STYLES[Math.floor(Math.random() * AVAILABLE_STYLES.length)];
+      onStyleChange(randomStyle.value);
+      playSuccess();
   };
 
   const handleSmartMatch = async () => {
@@ -452,7 +441,6 @@ const PromptInput: React.FC<PromptInputProps> = ({
             onStyleChange(match);
             playSuccess();
         } else {
-            // If no match found or error, maybe just flash 'None' or do nothing
             onStyleChange('None');
         }
     } catch (e) {
@@ -471,7 +459,6 @@ const PromptInput: React.FC<PromptInputProps> = ({
       }
   };
 
-  // Find active style object for display
   const activeStyleObj = AVAILABLE_STYLES.find(s => s.value === currentStyle);
   const isMenuOpen = showHistory || showStyleMenu || showNegativeMenu;
 
@@ -485,9 +472,6 @@ const PromptInput: React.FC<PromptInputProps> = ({
         ${isAdded ? 'ring-2 ring-emerald-500/50' : ''}
     `}>
       
-      {/* Glow effect container */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-purple-500/5 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
-
       {/* Main Text Area Wrapper */}
       <div className="flex-1 relative flex flex-col w-full">
             
@@ -498,24 +482,36 @@ const PromptInput: React.FC<PromptInputProps> = ({
              </div>
            )}
             
-           {/* Current Style Badge - Moved to floating top right */}
-           {currentStyle !== 'None' && activeStyleObj && (
-             <div className={`absolute top-3 right-4 z-10 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all pointer-events-none
-                    ${isLight 
-                        ? 'bg-slate-100 border-slate-200 text-slate-600' 
-                        : 'bg-black/40 border-white/10 text-gray-300'}
-                `}
-             >
-                <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${activeStyleObj.color} ${isStyleRolling ? 'animate-spin' : ''}`} />
-                {activeStyleObj.label}
-             </div>
-           )}
+           {/* Badges Container - changed to flex row to avoid vertical overlap with text */}
+           <div className="absolute top-3 right-4 z-10 flex items-center gap-2 pointer-events-none">
+               {/* JSON Mode Indicator */}
+               {isJson && (
+                   <div className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all
+                        ${isLight ? 'bg-cyan-50 text-cyan-600 border-cyan-200' : 'bg-cyan-900/30 text-cyan-400 border-cyan-500/30'}
+                   `}>
+                       <FileJson size={12} /> JSON Mode
+                   </div>
+               )}
+               
+               {/* Current Style Badge */}
+               {currentStyle !== 'None' && activeStyleObj && (
+                 <div className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all
+                        ${isLight 
+                            ? 'bg-slate-100 border-slate-200 text-slate-600' 
+                            : 'bg-black/40 border-white/10 text-gray-300'}
+                    `}
+                 >
+                    <span className={`w-2 h-2 rounded-full bg-gradient-to-br ${activeStyleObj.color} ${isStyleRolling ? 'animate-spin' : ''}`} />
+                    {activeStyleObj.label}
+                 </div>
+               )}
+           </div>
 
            <textarea
             ref={textareaRef}
-            className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[100px] transition-colors
+            className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[120px] transition-colors
               ${isLight ? 'text-slate-800 placeholder-slate-400' : 'text-gray-100 placeholder-gray-500'}
-              ${inputImage ? 'pb-24' : 'pb-16'} 
+              ${inputImage ? 'pb-24' : 'pb-4'} 
               ${isRolling ? 'blur-[1px] opacity-80' : 'blur-0 opacity-100'}
             `}
             placeholder={isListening ? "Listening..." : placeholder}
@@ -544,9 +540,35 @@ const PromptInput: React.FC<PromptInputProps> = ({
               </div>
           )}
 
+          {/* Video Camera Controls Chips (Only in Video Mode) */}
+          {mode === 'video' && !isJson && (
+             <div className="absolute bottom-16 left-0 w-full px-6 flex gap-2 overflow-x-auto no-scrollbar mask-linear-fade">
+                  <div className={`shrink-0 text-[10px] font-bold uppercase tracking-widest py-1.5 flex items-center ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
+                      Director:
+                  </div>
+                  {VIDEO_CAMERA_CONTROLS.map((control) => {
+                      const Icon = control.icon;
+                      const isActive = value.includes(control.value);
+                      return (
+                          <button
+                            key={control.label}
+                            onClick={() => handleAddCameraControl(control.value)}
+                            className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium border transition-all
+                                ${isActive
+                                    ? (isLight ? 'bg-cyan-100 text-cyan-700 border-cyan-200' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30')
+                                    : (isLight ? 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50' : 'bg-black/20 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white')}
+                            `}
+                          >
+                              <Icon size={10} /> {control.label}
+                          </button>
+                      );
+                  })}
+             </div>
+          )}
+
           {/* Image Preview Area */}
           {inputImage && (
-            <div className="absolute bottom-2 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-16 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
               <div className={`relative group/image inline-block rounded-lg overflow-hidden border shadow-lg
                    ${isLight ? 'border-slate-200 bg-slate-100' : 'border-white/10 bg-black/40'}
               `}>
@@ -568,6 +590,39 @@ const PromptInput: React.FC<PromptInputProps> = ({
             </div>
           )}
       </div>
+
+      {/* Integrated Negative Prompt */}
+      {isMain && onNegativeChange && (
+          <div className={`border-t transition-all overflow-hidden
+                ${isLight ? 'border-slate-100' : 'border-white/5'}
+                ${showNegativeInput ? 'h-24 opacity-100' : 'h-0 opacity-0'}
+          `}>
+              <div className="flex items-center h-full">
+                  <div className={`w-10 h-full flex items-center justify-center border-r ${isLight ? 'border-slate-100 bg-slate-50' : 'border-white/5 bg-black/20'}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest -rotate-90 whitespace-nowrap opacity-50 select-none ${isLight ? 'text-red-400' : 'text-red-500'}`}>
+                          Negative
+                      </span>
+                  </div>
+                  <textarea
+                    className={`flex-1 h-full bg-transparent p-3 text-xs outline-none resize-none font-light tracking-wide
+                        ${isLight ? 'text-slate-600 placeholder-slate-400' : 'text-gray-300 placeholder-gray-600'}
+                    `}
+                    placeholder="Describe what you want to avoid (e.g. blurry, bad anatomy)..."
+                    value={negativeValue}
+                    onChange={(e) => onNegativeChange(e.target.value)}
+                  />
+                  <div className="flex flex-col h-full border-l border-white/5">
+                    <button 
+                        onClick={() => setShowNegativeInput(false)}
+                        className="flex-1 px-3 text-gray-500 hover:text-red-400 transition-colors hover:bg-white/5"
+                        title="Close Negative Prompt"
+                    >
+                        <X size={14} />
+                    </button>
+                  </div>
+              </div>
+          </div>
+      )}
       
       {/* Bottom Toolbar */}
       <div className={`flex flex-wrap items-center justify-between p-3 gap-3 border-t rounded-b-xl
@@ -718,21 +773,36 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     </div>
                 )}
 
-                {/* Negative Presets */}
-                {isNegative && (
+                {/* Negative Presets & Toggle */}
+                {isMain && onNegativeChange && (
                     <div className="relative" ref={negativeMenuRef}>
-                        <button 
-                            onClick={() => setShowNegativeMenu(!showNegativeMenu)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border
-                                ${isLight 
-                                    ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
-                                    : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
-                                ${showNegativeMenu ? (isLight ? 'bg-slate-100' : 'bg-white/10') : ''}
-                            `}
-                            title="Negative Presets"
-                        >
-                            <ShieldBan size={14} /> <span className="hidden md:inline">Presets</span>
-                        </button>
+                        <div className="flex gap-1">
+                            <button 
+                                onClick={() => setShowNegativeInput(!showNegativeInput)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border
+                                    ${isLight 
+                                        ? 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100' 
+                                        : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}
+                                    ${showNegativeInput ? (isLight ? 'bg-red-50 text-red-500 border-red-200' : 'bg-red-900/20 text-red-400 border-red-500/20') : ''}
+                                `}
+                                title="Toggle Negative Prompt"
+                            >
+                                <ShieldBan size={14} /> 
+                                <span className="hidden md:inline">Negative</span>
+                                {showNegativeInput ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                            </button>
+                            <button
+                                onClick={() => setShowNegativeMenu(!showNegativeMenu)}
+                                className={`px-2 py-2 rounded-lg transition-all border
+                                    ${isLight 
+                                        ? 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100' 
+                                        : 'bg-white/5 text-gray-500 border-white/10 hover:bg-white/10'}
+                                `}
+                                title="Negative Presets"
+                            >
+                                <Plus size={14} />
+                            </button>
+                        </div>
 
                         {showNegativeMenu && (
                             <div className={`absolute bottom-full left-0 mb-2 w-56 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-left
@@ -750,7 +820,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                                                 ${isLight ? 'hover:bg-slate-50 text-slate-600' : 'hover:bg-white/5 text-gray-400 hover:text-gray-200'}
                                             `}
                                         >
-                                            <Plus size={10} className="opacity-50 group-hover:opacity-100" />
+                                            <ShieldBan size={10} className="opacity-50 group-hover:opacity-100 text-red-400" />
                                             <div className="flex flex-col">
                                                 <span>{preset.label}</span>
                                             </div>
@@ -780,7 +850,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                             <History size={16} />
                         </button>
                         
-                        {/* History Dropdown (Upwards) */}
+                        {/* History Dropdown */}
                         {showHistory && (
                             <div className={`absolute bottom-full right-0 mb-2 w-72 rounded-xl shadow-2xl border backdrop-blur-md z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-right
                                 ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
