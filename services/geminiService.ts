@@ -132,47 +132,67 @@ export const extractStyle = async (imageBase64: string): Promise<string> => {
 export const generateImageFromHf = async (prompt: string, model: string): Promise<string> => {
     const token = getStoredHfToken();
     if (!token || token.trim() === '') {
-        throw new Error("Hugging Face Token is empty. Please add your token in Settings.");
+        throw new Error("Hugging Face Token is empty. Please add your token in Settings to use Flux.");
     }
 
     try {
-        const response = await fetch(
-            `https://api-inference.huggingface.co/models/${model}`,
-            {
-                headers: {
-                    "Authorization": `Bearer ${token.trim()}`,
-                    "Content-Type": "application/json",
-                },
-                method: "POST",
-                credentials: 'omit', // Helps bypass some CORS preflight logic in sandboxed environments
-                body: JSON.stringify({ 
-                    inputs: prompt,
-                    options: { wait_for_model: true }
-                }),
-            }
-        );
+        // Standardizing the headers and mode for maximum compatibility
+        const headers = new Headers();
+        headers.append("Authorization", `Bearer ${token.trim()}`);
+        headers.append("Content-Type", "application/json");
+
+        const requestOptions: RequestInit = {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ 
+                inputs: prompt,
+                options: { 
+                    wait_for_model: true,
+                    use_cache: false 
+                }
+            }),
+            mode: 'cors',
+            cache: 'no-cache'
+        };
+
+        const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, requestOptions);
 
         if (!response.ok) {
             const errText = await response.text();
-            let errorMessage = `HF Error: ${response.status} ${response.statusText}`;
+            let errorMessage = `HF Error: ${response.status}`;
             try {
                 const errJson = JSON.parse(errText);
                 errorMessage = errJson.error || errorMessage;
             } catch(e) {}
+            
+            if (response.status === 401) throw new Error("Invalid Hugging Face Token. Check your settings.");
+            if (response.status === 404) throw new Error("Model not found on Hugging Face.");
+            if (response.status === 503) throw new Error("Hugging Face model is currently loading. Try again in 30 seconds.");
+            
             throw new Error(errorMessage);
         }
 
-        const result = await response.blob();
+        const resultBlob = await response.blob();
+        
+        // Safety check: sometimes APIs return a JSON error with a 200 status (rare but happens)
+        if (resultBlob.type.includes('json')) {
+            const text = await resultBlob.text();
+            const json = JSON.parse(text);
+            throw new Error(json.error || "Received JSON instead of an image from Hugging Face.");
+        }
+
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("Failed to read image result"));
-            reader.readAsDataURL(result);
+            reader.onerror = () => reject(new Error("Failed to process image data from Hugging Face."));
+            reader.readAsDataURL(resultBlob);
         });
     } catch (error: any) {
-        // Descriptive error for "Failed to fetch" which is usually a network/CORS block
-        if (error.name === 'TypeError' || error.message.includes('fetch')) {
-            throw new Error("Connection Blocked: Hugging Face rejected the request. This is likely a CORS issue in this environment or an active Ad-Blocker.");
+        console.error("HF Fetch Details:", error);
+        
+        // If it's a generic TypeError, it's almost certainly a CORS/Network block by the browser
+        if (error.name === 'TypeError') {
+            throw new Error("Connection Blocked: The browser environment is preventing the request to Hugging Face. This usually happens in restricted sandboxes. Try running locally or switching to a Gemini model!");
         }
         throw error;
     }
