@@ -179,22 +179,29 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         const db = await initDB();
         let storageImage = { ...image };
         
-        if (storageImage.url.startsWith('blob:')) {
+        // Convert URLs to Base64 for persistence
+        if (storageImage.url.startsWith('blob:') || storageImage.url.startsWith('http')) {
             try {
-                const response = await fetch(storageImage.url);
-                const blob = await response.blob();
-                const base64 = await blobToBase64(blob);
-                storageImage.url = base64;
-            } catch (err) {}
-        } else if (storageImage.type === 'video' && storageImage.url.startsWith('http')) {
-            try {
-                const response = await fetch(storageImage.url);
-                if (response.ok) {
-                     const blob = await response.blob();
-                     const base64 = await blobToBase64(blob);
-                     storageImage.url = base64;
+                let fetchUrl = storageImage.url;
+                
+                if (fetchUrl.includes('generativelanguage.googleapis.com')) {
+                    const key = process.env.API_KEY || getStoredApiKey();
+                    if (key && !fetchUrl.includes('key=')) {
+                        const separator = fetchUrl.includes('?') ? '&' : '?';
+                        fetchUrl = `${fetchUrl}${separator}key=${key}`;
+                    }
                 }
-            } catch (err) {}
+
+                const response = await fetch(fetchUrl);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const base64 = await blobToBase64(blob);
+                    storageImage.url = base64;
+                }
+            } catch (err: any) {
+                // If fetch fails (CORS), we skip localization and keep the remote URL
+                console.warn("Media localization skipped (usually CORS). Keeping remote URL.", err.message);
+            }
         }
 
         const tx = db.transaction(GALLERY_STORE_NAME, 'readwrite');
@@ -213,6 +220,7 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         await tx.done;
         return getGallery();
     } catch (e) {
+        console.error("IDB Save Error:", e);
         return getGallery();
     }
 };

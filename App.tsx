@@ -25,7 +25,7 @@ const DEFAULT_CONFIG: AppConfig = {
   mode: 'image',
   prompt: '',
   negativePrompt: DEFAULT_NEGATIVE_PROMPT,
-  model: ModelType.GEMINI_PRO_IMAGE, 
+  model: ModelType.GEMINI_FLASH_IMAGE, // Changed to Flash by default to save user costs
   aspectRatio: '1:1',
   style: 'Anime',
   quality: 90, 
@@ -78,15 +78,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       // 1. Check for Embedded Env Key (Deployed App)
-      if (process.env.API_KEY) {
-          // If we have an embedded key, we MUST gate it with an access code
-          // unless the user has already passed the check.
+      if (process.env.API_KEY && process.env.API_KEY !== '') {
           if (isAccessGranted()) {
               setHasKey(true);
               setIsLocked(false);
           } else {
-              setHasKey(true); // Technically we have a key
-              setIsLocked(true); // But we lock the UI
+              setHasKey(true);
+              setIsLocked(true);
           }
       } 
       // 2. Check AI Studio (Dev Env) - No lock needed
@@ -189,7 +187,6 @@ const App: React.FC = () => {
   };
 
   const handleApiKeySelect = async () => {
-    // If in development (AI Studio), use the native picker
     if (window.aistudio) {
       try {
         await window.aistudio.openSelectKey();
@@ -200,11 +197,10 @@ const App: React.FC = () => {
         console.error("Key selection failed", e);
       }
     } else {
-        // In deployment, remove key and force re-entry
         removeStoredApiKey();
-        revokeAccess(); // Also revoke admin access if they logout
+        revokeAccess();
         setHasKey(false);
-        setIsLocked(false); // Reset lock state to show BYOK screen
+        setIsLocked(false);
     }
   };
 
@@ -234,8 +230,6 @@ const App: React.FC = () => {
   };
 
   const handleSwitchToBYOK = () => {
-      // User doesn't know the password, so they want to use their own key
-      // We essentially act as if the env key doesn't exist
       setIsLocked(false);
       setHasKey(false);
   };
@@ -262,7 +256,6 @@ const App: React.FC = () => {
     setIsEnhancing(true);
     setNotification(null);
     try {
-        // Pass the current style to the enhancer so it knows context
         const enhanced = await enhancePrompt(config.prompt, config.style);
         updateConfig('prompt', enhanced);
         showNotification("Prompt enhanced using Gemini 3.0 Pro reasoning.", 'success');
@@ -289,7 +282,7 @@ const App: React.FC = () => {
       try {
           const description = await describeImage(config.inputImage);
           updateConfig('prompt', description);
-          incrementUsage(); // Count as a usage
+          incrementUsage();
           showNotification("Image analyzed! Prompt generated.", 'success');
           playSuccess();
       } catch (err: any) {
@@ -309,7 +302,7 @@ const App: React.FC = () => {
       return;
     }
 
-    setIsDescribing(true); // Re-use loading state
+    setIsDescribing(true); 
     setNotification(null);
     playClick();
 
@@ -338,11 +331,10 @@ const App: React.FC = () => {
       updateConfig('model', ModelType.GEMINI_FLASH_IMAGE);
       setNotification(null);
       setShowFreeTierSuggestion(false);
-      showNotification("Switched to Gemini Flash (Free Tier)", 'info');
+      showNotification("Switched to Gemini Flash", 'info');
   };
 
   const handleGenerate = async () => {
-    // 1. Check Usage Limits (Safety Governor)
     if (isLimitReached()) {
         playError();
         showNotification("Daily Usage Limit Reached. Check Settings > Safety Governor to increase limit.", 'error');
@@ -369,7 +361,6 @@ const App: React.FC = () => {
 
     try {
         if (config.mode === 'video') {
-             // VIDEO GENERATION
              let videoPrompt = config.prompt;
              if (config.style !== 'None' && config.prompt.trim()) {
                  videoPrompt = `${config.style} style: ${config.prompt}`;
@@ -390,15 +381,12 @@ const App: React.FC = () => {
                 style: config.style
              };
              
-             // Auto-save Video
              const updatedGallery = await saveToGallery(newVideo);
              setGalleryImages(updatedGallery);
-             
              setGeneratedImages([newVideo]);
-             incrementUsage(); // Count usage
+             incrementUsage(); 
              playSuccess();
         } else {
-             // IMAGE GENERATION
              let enhancedPrompt = config.prompt;
              if (config.style !== 'None' && config.prompt.trim()) {
                enhancedPrompt = `${config.style} style: ${config.prompt}`;
@@ -431,7 +419,6 @@ const App: React.FC = () => {
        
              const results = await Promise.all(batchPromises);
              
-             // Auto-save Images
              let currentGallery = galleryImages;
              for (const img of results) {
                  currentGallery = await saveToGallery(img);
@@ -439,19 +426,20 @@ const App: React.FC = () => {
              setGalleryImages(currentGallery);
 
              setGeneratedImages(results);
-             incrementUsage(); // Count usage
+             incrementUsage(); 
              playSuccess();
         }
 
     } catch (err: any) {
       console.error(err);
       playError();
-      if (err.message && (err.message.includes('403') || err.message.includes('permission') || err.message.includes('Permission denied'))) {
+      const msg = err.message || "";
+      if (msg.includes('403') || msg.toLowerCase().includes('permission')) {
           if (config.model !== ModelType.GEMINI_FLASH_IMAGE) {
-             showNotification("Permission denied. This model requires a paid plan.", 'error');
+             showNotification("Permission denied. This model may require a paid billing account.", 'error');
              setShowFreeTierSuggestion(true);
           } else {
-             showNotification("Permission denied. Please check your API Key.", 'error');
+             showNotification("Permission denied. Please check your API Key settings.", 'error');
           }
       } else {
           showNotification(err.message || "Failed to generate. Please try again.", 'error');
@@ -464,7 +452,6 @@ const App: React.FC = () => {
   const handleVariations = async (sourceImage: GeneratedImage) => {
     if (!sourceImage.seed || sourceImage.type !== 'image') return;
     
-    // Check usage
     if (isLimitReached()) {
         showNotification("Daily Limit Reached.", 'error');
         return;
@@ -476,7 +463,6 @@ const App: React.FC = () => {
     setNotification(null);
 
     try {
-        // Use properties from the source image if available, falling back to current config
         const promptToUse = sourceImage.prompt || config.prompt;
         const styleToUse = sourceImage.style || config.style;
         const modelToUse = sourceImage.model || config.model;
@@ -493,10 +479,8 @@ const App: React.FC = () => {
 
         const batchPromises = Array.from({ length: variationBatchSize }).map(async (_, index) => {
             const effectiveSeed = baseSeed + index;
-            
-            // Construct config for this specific generation
             const genConfig: AppConfig = {
-                ...config, // base defaults
+                ...config,
                 prompt: enhancedPrompt,
                 model: modelToUse,
                 aspectRatio: ratioToUse,
@@ -504,9 +488,7 @@ const App: React.FC = () => {
                 negativePrompt: negToUse,
                 seed: effectiveSeed
             };
-
             const url = await generateImage(genConfig);
-
             return {
                 id: generateUUID(),
                 url,
@@ -522,14 +504,11 @@ const App: React.FC = () => {
         });
 
         const results = await Promise.all(batchPromises);
-        
-        // Auto-save Variations
         let currentGallery = galleryImages;
         for (const img of results) {
             currentGallery = await saveToGallery(img);
         }
         setGalleryImages(currentGallery);
-        
         setGeneratedImages(results);
         incrementUsage();
         playSuccess();
@@ -543,7 +522,6 @@ const App: React.FC = () => {
   };
 
   const handleSaveToGallery = async (image: GeneratedImage) => {
-    // Only manual trigger if auto-save fails for some reason, but we handle logic here
     const updatedGallery = await saveToGallery(image);
     setGalleryImages(updatedGallery);
     showNotification("Saved to Gallery", 'success');
@@ -551,30 +529,22 @@ const App: React.FC = () => {
 
   const handleUpscale = async (targetImage: GeneratedImage) => {
     if (!targetImage.url || targetImage.type !== 'image') return;
-    
-    // Check usage
     if (isLimitReached()) {
         showNotification("Daily Limit Reached.", 'error');
         return;
     }
-    
     setIsUpscaling(true);
     setNotification(null);
-
     try {
       const upscaledUrl = await upscaleImage(targetImage.url, config.aspectRatio);
-      
       const newImage = { 
           ...targetImage, 
           url: upscaledUrl, 
           id: generateUUID(),
           prompt: targetImage.prompt + " (Upscaled)"
       };
-
       setGeneratedImages(prev => {
           if (!prev) return [newImage];
-          // NON-DESTRUCTIVE INSERT:
-          // Insert the upscaled image RIGHT AFTER the original, preserving the original
           const index = prev.findIndex(img => img.id === targetImage.id);
           if (index !== -1) {
               const newList = [...prev];
@@ -583,15 +553,11 @@ const App: React.FC = () => {
           }
           return [...prev, newImage];
       });
-      
-      // Auto-save Upscaled Result
       const updated = await saveToGallery(newImage);
       setGalleryImages(updated);
-      incrementUsage(); // Upscale counts as generation
-
+      incrementUsage();
       playSuccess();
       showNotification("Image upscaled to 4K. Added to batch.", 'success');
-      
     } catch (err: any) {
       console.error(err);
       showNotification(err.message || "Failed to upscale image.", 'error');
@@ -643,17 +609,13 @@ const App: React.FC = () => {
 
   if (hasKey === null) return <div className="min-h-screen bg-[#050510]" />;
 
-  // LOCK SCREEN (If Env Key exists but code not entered)
   if (isLocked) {
       return (
         <div className="min-h-screen text-white relative flex flex-col items-center justify-center overflow-hidden">
             <Background theme={config.theme} />
-            
             <div className="z-10 p-1 bg-gradient-to-br from-red-500/30 via-purple-500/30 to-transparent rounded-3xl backdrop-blur-sm max-w-md w-full mx-4 shadow-2xl animate-in fade-in zoom-in duration-500">
                <div className="bg-[#0b0e1e]/90 rounded-[22px] p-8 text-center space-y-8 relative overflow-hidden">
-                  {/* Scanline Effect */}
                   <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(transparent_0%,rgba(255,0,0,0.05)_50%,transparent_100%)] bg-[length:100%_4px] animate-scan" />
-
                   <div className="relative">
                     <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/30 mb-4 animate-pulse">
                         <Lock className="text-red-500" size={32} />
@@ -662,12 +624,10 @@ const App: React.FC = () => {
                       Security Clearance
                     </h1>
                   </div>
-                  
                   <div className="space-y-4">
                       <p className="text-gray-300 font-light text-sm">
                         This system is running in managed mode. Please enter the access code to use the hosted API key.
                       </p>
-                      
                       <div className="space-y-3">
                              <div className="relative">
                                 <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
@@ -687,7 +647,6 @@ const App: React.FC = () => {
                                 <Zap size={18} />
                                 Verify Identity
                             </button>
-                            
                             <div className="pt-4 border-t border-white/5 mt-4">
                                 <button 
                                     onClick={handleSwitchToBYOK}
@@ -700,7 +659,6 @@ const App: React.FC = () => {
                   </div>
                </div>
             </div>
-            
             {notification && (
                 <div className="fixed top-10 right-1/2 translate-x-1/2 z-[60] px-6 py-3 rounded-full bg-red-500/90 text-white shadow-xl backdrop-blur-md flex items-center gap-2 animate-in slide-in-from-top-4 fade-in">
                     <AlertCircle size={18} /> {notification.message}
@@ -710,12 +668,10 @@ const App: React.FC = () => {
       );
   }
 
-  // BYOK SCREEN (No Env Key or User chose to use own key)
   if (!hasKey) {
     return (
       <div className="min-h-screen text-white relative flex flex-col items-center justify-center overflow-hidden">
         <Background theme={config.theme} />
-        
         <div className="z-10 p-1 bg-gradient-to-br from-cyan-500/30 via-purple-500/30 to-transparent rounded-3xl backdrop-blur-sm max-w-md w-full mx-4 shadow-2xl animate-in fade-in zoom-in duration-500">
            <div className="bg-[#0b0e1e]/90 rounded-[22px] p-8 text-center space-y-8">
               <div className="relative">
@@ -724,12 +680,10 @@ const App: React.FC = () => {
                   Nebula AI
                 </h1>
               </div>
-              
               <div className="space-y-4">
                   <p className="text-gray-300 font-light text-lg">
                     {window.aistudio ? "Connect your Google Cloud project to start generating art." : "Enter your Google Gemini API Key to initialize the core."}
                   </p>
-                  
                   {window.aistudio ? (
                     <button 
                         onClick={handleApiKeySelect}
@@ -779,9 +733,7 @@ const App: React.FC = () => {
         onOpenHelp={handleOpenHelp}
         theme={config.theme}
       />
-
       <main className="container mx-auto px-4 pt-10 pb-20 relative z-10">
-        
         <div className="text-center mb-10 relative">
           <h1 className={`text-5xl md:text-6xl font-bold bg-clip-text text-transparent glow-text mb-4 tracking-tight
                 ${isLight ? 'bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-500' : 'bg-gradient-to-r from-cyan-300 via-white to-purple-400'}
@@ -792,7 +744,6 @@ const App: React.FC = () => {
             {config.mode === 'video' ? 'Create stunning video clips with Veo' : 'Create stunning visuals with Gemini'}
           </p>
         </div>
-
         {notification && (
             <div className={`fixed top-24 right-4 z-[60] max-w-sm w-full border-l-4 p-4 rounded-r shadow-2xl animate-in slide-in-from-right-10 fade-in duration-300 flex items-start gap-3 backdrop-blur-md
                 ${notification.type === 'error' ? 'bg-[#1e293b]/90 border-red-500 text-white' : 
@@ -804,7 +755,6 @@ const App: React.FC = () => {
                 {notification.type === 'success' && <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20} />}
                 {notification.type === 'warning' && <Zap className="text-yellow-500 shrink-0 mt-0.5" size={20} />}
                 {notification.type === 'info' && <Info className="text-cyan-500 shrink-0 mt-0.5" size={20} />}
-                
                 <div className="flex-1">
                    <p className="font-medium text-sm">{notification.message}</p>
                    {showFreeTierSuggestion && (
@@ -819,7 +769,6 @@ const App: React.FC = () => {
                 <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-white">✕</button>
             </div>
         )}
-
         <div className="flex flex-col lg:flex-row gap-6 max-w-[1400px] mx-auto items-start">
             <div className="flex-1 min-w-0 flex flex-col gap-6 w-full">
                 <div className={`w-full rounded-3xl p-[1px] shadow-[0_0_50px_rgba(8,145,178,0.1)] backdrop-blur-sm
@@ -859,14 +808,12 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 </div>
-
                 <ControlPanel 
                     config={config} 
                     updateConfig={updateConfig} 
                     onNotify={showNotification}
                 />
             </div>
-
             <div className="lg:w-[320px] xl:w-[380px] shrink-0 lg:sticky lg:top-24">
                 <PreviewPane 
                     image={previewImage}
@@ -878,13 +825,9 @@ const App: React.FC = () => {
                     theme={config.theme}
                 />
             </div>
-
         </div>
-
       </main>
-
       <div className="fixed bottom-6 left-6 z-40 flex flex-col gap-2">
-         {/* Logout Button (Only if stored key exists OR if logged in via Admin Code) */}
          {(!window.aistudio && (getStoredApiKey() || isAccessGranted())) && (
             <button 
                 onClick={handleApiKeySelect}
@@ -898,7 +841,6 @@ const App: React.FC = () => {
                 <LogOut size={20} />
             </button>
          )}
-
         <button 
             onClick={() => {
                 setConfig(DEFAULT_CONFIG);
@@ -917,7 +859,6 @@ const App: React.FC = () => {
             <RefreshCcw size={20} />
         </button>
       </div>
-
       {generatedImages && generatedImages.length > 0 && (
         <GeneratedImageModal 
           images={generatedImages}
@@ -929,11 +870,10 @@ const App: React.FC = () => {
           onVariations={handleVariations}
           onEdit={handleEdit}
           onShare={handleShare}
-          initiallySaved={true} // AUTO-SAVED
+          initiallySaved={true} 
           enableAutoSpeak={config.enableAutoSpeak}
         />
       )}
-
       <GalleryModal 
         isOpen={isGalleryOpen} 
         onClose={() => setIsGalleryOpen(false)} 
@@ -941,14 +881,12 @@ const App: React.FC = () => {
         onDelete={handleDeleteImage} 
         onSelect={handleSelectImage} 
       />
-
        <TemplateModal
           isOpen={isTemplatesOpen}
           onClose={() => setIsTemplatesOpen(false)}
           onApply={handleTemplateApply}
           theme={config.theme}
        />
-
        <SettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
@@ -956,7 +894,6 @@ const App: React.FC = () => {
           onUpdateTheme={(theme) => updateConfig('theme', theme)}
           onManageApiKey={handleApiKeySelect}
        />
-
        <OnboardingModal
            isOpen={isOnboardingOpen}
            onClose={handleCloseOnboarding}

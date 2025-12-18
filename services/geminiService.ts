@@ -4,8 +4,9 @@ import { AppConfig, ModelType } from "../types";
 import { getStoredApiKey, getStoredHfToken } from "./storageService";
 
 const getClient = () => {
+    // Priority: 1. Environment Variable, 2. Local Storage
     let apiKey = process.env.API_KEY;
-    if (!apiKey) {
+    if (!apiKey || apiKey === '') {
         const storedKey = getStoredApiKey();
         if (storedKey) apiKey = storedKey;
     }
@@ -63,7 +64,6 @@ const parseJsonPrompt = (input: string): string => {
 export const enhancePrompt = async (input: string, style: string = 'None'): Promise<string> => {
     const ai = getClient();
     const model = 'gemini-3-pro-preview';
-    let isJson = input.trim().startsWith('{');
     const cleanedInput = parseJsonPrompt(input);
 
     const promptText = `
@@ -139,29 +139,45 @@ export const generateImageFromHf = async (prompt: string, model: string): Promis
         throw new Error("Hugging Face Token not found. Please add your token in Settings to use free models.");
     }
 
-    const response = await fetch(
-        `https://api-inference.huggingface.co/models/${model}`,
-        {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            method: "POST",
-            body: JSON.stringify({ inputs: prompt }),
+    try {
+        const response = await fetch(
+            `https://api-inference.huggingface.co/models/${model}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                method: "POST",
+                body: JSON.stringify({ 
+                    inputs: prompt,
+                    options: { wait_for_model: true } // Crucial for HF cold starts
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            const errText = await response.text();
+            let errorMessage = response.statusText;
+            try {
+                const errJson = JSON.parse(errText);
+                errorMessage = errJson.error || errorMessage;
+            } catch(e) {}
+            throw new Error(`HF Error: ${errorMessage}`);
         }
-    );
 
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(`HF Generation Error: ${err.error || response.statusText}`);
+        const result = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error("Failed to read image blob"));
+            reader.readAsDataURL(result);
+        });
+    } catch (error: any) {
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+            throw new Error("Network error: Could not reach Hugging Face. Check your internet or ad-blocker.");
+        }
+        throw error;
     }
-
-    const result = await response.blob();
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(result);
-    });
 };
 
 // --- AUDIO / TTS ---
@@ -267,15 +283,37 @@ export const generateBackstory = async (imageBase64: string, prompt: string): Pr
 
 export const shareMedia = async (url: string, title: string, text: string): Promise<void> => {
     try {
-        const response = await fetch(url);
+        let fetchUrl = url;
+        // If it's a Google URI, append key for authorized fetch
+        if (url.includes('generativelanguage.googleapis.com')) {
+             const key = process.env.API_KEY || getStoredApiKey();
+             if (key && !url.includes('key=')) {
+                const separator = url.includes('?') ? '&' : '?';
+                fetchUrl = `${url}${separator}key=${key}`;
+             }
+        }
+
+        const response = await fetch(fetchUrl);
+        if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
         const blob = await response.blob();
-        const file = new File([blob], `art.png`, { type: blob.type });
+        const file = new File([blob], `nebula-art-${Date.now()}.png`, { type: blob.type });
+        
         if (navigator.share) {
             await navigator.share({ title, text, files: [file] });
         } else {
-            alert("Native sharing not supported.");
+            // Fallback: Copy to clipboard if possible
+            if (typeof ClipboardItem !== 'undefined' && blob.type.startsWith('image')) {
+                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                alert("Art copied to clipboard!");
+            } else {
+                alert("Native sharing not supported on this browser.");
+            }
         }
-    } catch (error) {}
+    } catch (error: any) {
+        console.error("Share error:", error);
+        // Don't let a share failure crash the app state, just notify
+        if (error.name === 'TypeError') alert("Security block: This browser prevents sharing directly from the cloud. Please download the file instead.");
+    }
 };
 
 export const generateImage = async (config: AppConfig): Promise<string> => {
@@ -298,21 +336,40 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
                 config: { numberOfImages: 1, aspectRatio: aspectRatio as any, outputMimeType: 'image/jpeg' }
             });
             if (response.generatedImages?.[0]) return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
-            throw new Error("Imagen failed.");
+            throw new Error("Imagen generation failed.");
         } else {
             const response = await ai.models.generateContent({
                 model: model,
                 contents: { parts: [{ text: `Generate image: ${finalPrompt} (Style: ${style})` }] },
-                config: { imageConfig: { aspectRatio, imageSize: model === ModelType.GEMINI_PRO_IMAGE ? imageSize : undefined } }
-            });
-            if (response.candidates?.[0]?.content?.parts) {
-                for (const part of response.candidates[0].content.parts) {
-                    if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                config: { 
+                    imageConfig: { 
+                        aspectRatio, 
+                        imageSize: model === ModelType.GEMINI_PRO_IMAGE ? imageSize : undefined 
+                    },
+                    safetySettings: [
+                        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                    ]
                 }
+            });
+            
+            const parts = response.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
-            throw new Error("Generation failed.");
+            
+            // Check for text refusal
+            const textPart = parts.find(p => p.text);
+            if (textPart?.text) throw new Error(`Model Refusal: ${textPart.text}`);
+            
+            throw new Error("Generation failed: No visual data returned.");
         }
     } catch (error: any) {
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+            throw new Error("Network error: Could not reach Google AI. Check your connection or API status.");
+        }
         throw error;
     }
 };
@@ -325,12 +382,13 @@ export const upscaleImage = async (imageBase64: string, aspectRatio: string): Pr
         const response = await ai.models.generateContent({
             model: ModelType.GEMINI_PRO_IMAGE,
             contents: {
-                parts: [{ text: "Upscale to 4K" }, { inlineData: { mimeType, data: base64Data } }]
+                parts: [{ text: "Refine and upscale this image to 4K resolution. Increase texture detail while keeping composition identical." }, { inlineData: { mimeType, data: base64Data } }]
             },
             config: { imageConfig: { aspectRatio, imageSize: '4K' } }
         });
-        if (response.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
-            return `data:${mimeType};base64,${response.candidates[0].content.parts[0].inlineData.data}`;
+        const parts = response.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+            if (part.inlineData) return `data:${mimeType};base64,${part.inlineData.data}`;
         }
         throw new Error("Upscale failed.");
     } catch (error) {
@@ -340,14 +398,26 @@ export const upscaleImage = async (imageBase64: string, aspectRatio: string): Pr
 
 export const generateVideo = async (config: AppConfig): Promise<string> => {
     const ai = getClient();
-    const operation = await ai.models.generateVideos({
-        model: ModelType.VEO_FAST,
-        prompt: parseJsonPrompt(config.prompt),
-        config: { numberOfVideos: 1, resolution: '720p', aspectRatio: config.aspectRatio as '16:9' | '9:16' }
-    });
-    while (!operation.done) {
-        await new Promise(r => setTimeout(r, 5000));
-        await ai.operations.getVideosOperation({ operation });
+    try {
+        let operation = await ai.models.generateVideos({
+            model: ModelType.VEO_FAST,
+            prompt: parseJsonPrompt(config.prompt),
+            config: { numberOfVideos: 1, resolution: '720p', aspectRatio: config.aspectRatio as '16:9' | '9:16' }
+        });
+        
+        while (!operation.done) {
+            await new Promise(r => setTimeout(r, 7000)); // slightly longer poll to be safe
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+        }
+
+        const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!videoUri) throw new Error("Video generation completed but no URI returned.");
+
+        const key = process.env.API_KEY || getStoredApiKey();
+        const separator = videoUri.includes('?') ? '&' : '?';
+        return key ? `${videoUri}${separator}key=${key}` : videoUri;
+    } catch (error: any) {
+        if (error.name === 'TypeError') throw new Error("Network error during video polling.");
+        throw error;
     }
-    return operation.response?.generatedVideos?.[0]?.video?.uri || "";
 };
