@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { AppTheme, GenerationMode } from '../types';
-import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Dices, Film, Mic, MicOff, Palette, BrainCircuit, ShieldBan, Plus, ChevronUp, ChevronDown, FileJson, Video, Move, ZoomIn, Camera, ScanEye, Loader2, Pipette } from 'lucide-react';
+import { Layout, Paperclip, X, Image as ImageIcon, Sparkles, Wand2, History, Trash2, Dices, Film, Mic, MicOff, Palette, BrainCircuit, ShieldBan, Plus, ChevronUp, ChevronDown, FileJson, Video, Move, ZoomIn, Camera, ScanEye, Loader2, Pipette, Lightbulb } from 'lucide-react';
 import { getPromptHistory, clearPromptHistory } from '../services/storageService';
 import { playClick, playHover, playSuccess } from '../services/audioService';
 import { detectStyleFromPrompt } from '../services/geminiService';
@@ -92,7 +92,7 @@ const SURPRISE_PROMPTS = [
     "A surreal landscape with floating islands and waterfalls cascading into the sky, dreamlike, pastel colors.",
     "A miniature world inside a lightbulb, mossy forests, tiny waterfalls, soft warm glow, macro detail.",
     "A surreal painting of melting clocks draped over dead trees in a desert landscape, Dali style, dreamlike.",
-    "Double exposure portrait of a woman's silhouette combined with a forest landscape, misty trees, birds flying.",
+    "Double exposure portrait of a woman's silhouette combined with a forest landscape, mistry trees, birds flying.",
     "A glass chess set where the pieces are filled with different colored smoke, checkmate position, macro shot.",
     "A cloud shaped like a sleeping polar bear floating over an iceberg, soft lighting.",
     "A stairway leading up into a moon made of cheese, whimsical art style.",
@@ -205,6 +205,10 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const negativeMenuRef = useRef<HTMLDivElement>(null);
   const [isAdded, setIsAdded] = useState(false);
 
+  // Inspiration State
+  const [showInspirationMenu, setShowInspirationMenu] = useState(false);
+  const inspirationRef = useRef<HTMLDivElement>(null);
+
   // Randomizer State
   const [isRolling, setIsRolling] = useState(false);
 
@@ -313,13 +317,16 @@ const PromptInput: React.FC<PromptInputProps> = ({
       if (negativeMenuRef.current && !negativeMenuRef.current.contains(event.target as Node)) {
         setShowNegativeMenu(false);
       }
+      if (inspirationRef.current && !inspirationRef.current.contains(event.target as Node)) {
+        setShowInspirationMenu(false);
+      }
     };
 
-    if (showHistory || showStyleMenu || showNegativeMenu) {
+    if (showHistory || showStyleMenu || showNegativeMenu || showInspirationMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showHistory, showStyleMenu, showNegativeMenu]);
+  }, [showHistory, showStyleMenu, showNegativeMenu, showInspirationMenu]);
 
   const toggleHistory = () => {
     playClick(600);
@@ -329,6 +336,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
     setShowHistory(!showHistory);
     setShowStyleMenu(false);
     setShowNegativeMenu(false);
+    setShowInspirationMenu(false);
   };
 
   const toggleStyleMenu = () => {
@@ -336,6 +344,15 @@ const PromptInput: React.FC<PromptInputProps> = ({
       setShowStyleMenu(!showStyleMenu);
       setShowHistory(false);
       setShowNegativeMenu(false);
+      setShowInspirationMenu(false);
+  };
+
+  const toggleInspirationMenu = () => {
+    playClick(750);
+    setShowInspirationMenu(!showInspirationMenu);
+    setShowHistory(false);
+    setShowStyleMenu(false);
+    setShowNegativeMenu(false);
   };
 
   const handleSelectHistory = (prompt: string) => {
@@ -468,7 +485,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const activeStyleObj = AVAILABLE_STYLES.find(s => s.value === currentStyle);
-  const isMenuOpen = showHistory || showStyleMenu || showNegativeMenu;
+  const isMenuOpen = showHistory || showStyleMenu || showNegativeMenu || showInspirationMenu;
+
+  const currentPool = mode === 'video' ? VIDEO_PROMPTS : SURPRISE_PROMPTS;
 
   return (
     <div className={`relative w-full rounded-2xl transition-all duration-300 p-1 group border flex flex-col
@@ -725,6 +744,49 @@ const PromptInput: React.FC<PromptInputProps> = ({
                         >
                             <Dices size={16} className={`transition-transform duration-500 ${isRolling ? 'animate-spin' : 'group-hover/dice:rotate-180'}`} />
                         </button>
+
+                        <div className="relative" ref={inspirationRef}>
+                            <button 
+                                onClick={toggleInspirationMenu}
+                                className={`p-2 rounded-md transition-all hover:scale-110
+                                    ${showInspirationMenu 
+                                        ? (isLight ? 'bg-cyan-50 text-cyan-600' : 'bg-cyan-500/20 text-cyan-400')
+                                        : (isLight ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-gray-400 hover:text-white')}
+                                `}
+                                title="Prompt Inspirations"
+                            >
+                                <Lightbulb size={16} />
+                            </button>
+
+                            {showInspirationMenu && (
+                                <div className={`absolute bottom-full left-0 mb-2 w-72 rounded-xl shadow-2xl border backdrop-blur-md z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-left
+                                    ${isLight ? 'bg-white border-slate-200' : 'bg-[#0f1225] border-white/10'}
+                                `}>
+                                    <div className={`p-3 border-b flex items-center justify-between ${isLight ? 'bg-slate-50 border-slate-100' : 'bg-[#131629] border-white/5'}`}>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                                            {mode === 'video' ? 'Video Inspirations' : 'Image Inspirations'}
+                                        </span>
+                                    </div>
+                                    <div className="max-h-64 overflow-y-auto custom-scrollbar p-1">
+                                        {currentPool.map((prompt, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => {
+                                                    playClick(800);
+                                                    onChange(prompt);
+                                                    setShowInspirationMenu(false);
+                                                }}
+                                                className={`w-full text-left px-3 py-2 rounded-lg text-[11px] leading-relaxed transition-all mb-0.5
+                                                    ${isLight ? 'hover:bg-slate-50 text-slate-600' : 'hover:bg-white/5 text-gray-400 hover:text-gray-200'}
+                                                `}
+                                            >
+                                                <span className="line-clamp-2 italic">"{prompt}"</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

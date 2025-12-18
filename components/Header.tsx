@@ -18,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenGallery, onOpenSettings, onOpenHe
         ${isLight ? 'bg-white/80 border-slate-200 shadow-sm' : 'border-white/5 bg-transparent'}
     `}>
       <div className="flex gap-3">
-        <button className="flex items-center gap-2 px-3 md:px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-400/80 to-purple-500/80 text-white font-medium shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all">
+        <button className="flex items-center gap-2 px-3 md:px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-400/80 to-purple-500/80 text-white font-medium shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-105 transition-all">
           <Image size={20} />
           <span className="text-sm hidden md:inline">AI Art Generator</span>
         </button>
