@@ -4,7 +4,6 @@ import { AppConfig, ModelType } from "../types";
 import { getStoredApiKey, getStoredHfToken } from "./storageService";
 
 const getClient = () => {
-    // Priority: 1. Environment Variable, 2. Local Storage
     let apiKey = process.env.API_KEY;
     if (!apiKey || apiKey === '') {
         const storedKey = getStoredApiKey();
@@ -16,7 +15,6 @@ const getClient = () => {
     return new GoogleGenAI({ apiKey });
 };
 
-// Helper to flatten JSON prompts into descriptive text
 const parseJsonPrompt = (input: string): string => {
     try {
         const trimmed = input.trim();
@@ -131,12 +129,10 @@ export const extractStyle = async (imageBase64: string): Promise<string> => {
     }
 };
 
-// --- HUGGING FACE INTEGRATION ---
-
 export const generateImageFromHf = async (prompt: string, model: string): Promise<string> => {
     const token = getStoredHfToken();
-    if (!token) {
-        throw new Error("Hugging Face Token not found. Please add your token in Settings to use free models.");
+    if (!token || token.trim() === '') {
+        throw new Error("Hugging Face Token is empty. Please add your token in Settings.");
     }
 
     try {
@@ -144,43 +140,43 @@ export const generateImageFromHf = async (prompt: string, model: string): Promis
             `https://api-inference.huggingface.co/models/${model}`,
             {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    "Authorization": `Bearer ${token.trim()}`,
                     "Content-Type": "application/json",
                 },
                 method: "POST",
+                credentials: 'omit', // Helps bypass some CORS preflight logic in sandboxed environments
                 body: JSON.stringify({ 
                     inputs: prompt,
-                    options: { wait_for_model: true } // Crucial for HF cold starts
+                    options: { wait_for_model: true }
                 }),
             }
         );
 
         if (!response.ok) {
             const errText = await response.text();
-            let errorMessage = response.statusText;
+            let errorMessage = `HF Error: ${response.status} ${response.statusText}`;
             try {
                 const errJson = JSON.parse(errText);
                 errorMessage = errJson.error || errorMessage;
             } catch(e) {}
-            throw new Error(`HF Error: ${errorMessage}`);
+            throw new Error(errorMessage);
         }
 
         const result = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("Failed to read image blob"));
+            reader.onerror = () => reject(new Error("Failed to read image result"));
             reader.readAsDataURL(result);
         });
     } catch (error: any) {
-        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-            throw new Error("Network error: Could not reach Hugging Face. Check your internet or ad-blocker.");
+        // Descriptive error for "Failed to fetch" which is usually a network/CORS block
+        if (error.name === 'TypeError' || error.message.includes('fetch')) {
+            throw new Error("Connection Blocked: Hugging Face rejected the request. This is likely a CORS issue in this environment or an active Ad-Blocker.");
         }
         throw error;
     }
 };
-
-// --- AUDIO / TTS ---
 
 const decodeBase64 = (base64: string): Uint8Array => {
     const binaryString = atob(base64);
@@ -284,7 +280,6 @@ export const generateBackstory = async (imageBase64: string, prompt: string): Pr
 export const shareMedia = async (url: string, title: string, text: string): Promise<void> => {
     try {
         let fetchUrl = url;
-        // If it's a Google URI, append key for authorized fetch
         if (url.includes('generativelanguage.googleapis.com')) {
              const key = process.env.API_KEY || getStoredApiKey();
              if (key && !url.includes('key=')) {
@@ -294,25 +289,18 @@ export const shareMedia = async (url: string, title: string, text: string): Prom
         }
 
         const response = await fetch(fetchUrl);
-        if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
+        if (!response.ok) throw new Error(`Share fetch failed: ${response.status}`);
         const blob = await response.blob();
         const file = new File([blob], `nebula-art-${Date.now()}.png`, { type: blob.type });
         
         if (navigator.share) {
             await navigator.share({ title, text, files: [file] });
         } else {
-            // Fallback: Copy to clipboard if possible
-            if (typeof ClipboardItem !== 'undefined' && blob.type.startsWith('image')) {
-                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-                alert("Art copied to clipboard!");
-            } else {
-                alert("Native sharing not supported on this browser.");
-            }
+            alert("Native sharing not supported on this browser.");
         }
     } catch (error: any) {
         console.error("Share error:", error);
-        // Don't let a share failure crash the app state, just notify
-        if (error.name === 'TypeError') alert("Security block: This browser prevents sharing directly from the cloud. Please download the file instead.");
+        alert("Could not prepare media for sharing. Try downloading it instead.");
     }
 };
 
@@ -320,13 +308,11 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
     const { prompt, model, aspectRatio, style, negativePrompt, seed, imageSize } = config;
     let finalPrompt = parseJsonPrompt(prompt);
 
-    // ROUTE TO HUGGING FACE IF SELECTED
     if (model === ModelType.HUGGING_FACE_FLUX) {
         const hfPrompt = `${style !== 'None' ? style + ' style: ' : ''}${finalPrompt}`;
         return await generateImageFromHf(hfPrompt, model);
     }
 
-    // STANDARD GEMINI / IMAGEN FLOW
     const ai = getClient();
     try {
         if (model === ModelType.IMAGEN_4) {
@@ -360,14 +346,13 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
                 if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
             
-            // Check for text refusal
             const textPart = parts.find(p => p.text);
             if (textPart?.text) throw new Error(`Model Refusal: ${textPart.text}`);
             
             throw new Error("Generation failed: No visual data returned.");
         }
     } catch (error: any) {
-        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+        if (error.name === 'TypeError' || error.message.includes('fetch')) {
             throw new Error("Network error: Could not reach Google AI. Check your connection or API status.");
         }
         throw error;
@@ -406,7 +391,7 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
         });
         
         while (!operation.done) {
-            await new Promise(r => setTimeout(r, 7000)); // slightly longer poll to be safe
+            await new Promise(r => setTimeout(r, 7000));
             operation = await ai.operations.getVideosOperation({ operation: operation });
         }
 
@@ -417,7 +402,7 @@ export const generateVideo = async (config: AppConfig): Promise<string> => {
         const separator = videoUri.includes('?') ? '&' : '?';
         return key ? `${videoUri}${separator}key=${key}` : videoUri;
     } catch (error: any) {
-        if (error.name === 'TypeError') throw new Error("Network error during video polling.");
+        if (error.name === 'TypeError' || error.message.includes('fetch')) throw new Error("Network error during video polling.");
         throw error;
     }
 };

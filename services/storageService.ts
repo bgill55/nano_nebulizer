@@ -179,7 +179,7 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         const db = await initDB();
         let storageImage = { ...image };
         
-        // Convert URLs to Base64 for persistence
+        // Convert URLs to Base64 for offline persistence if possible
         if (storageImage.url.startsWith('blob:') || storageImage.url.startsWith('http')) {
             try {
                 let fetchUrl = storageImage.url;
@@ -192,15 +192,17 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                     }
                 }
 
-                const response = await fetch(fetchUrl);
+                // Use no-cache to ensure we get the latest bits and credentials:omit to minimize CORS issues
+                const response = await fetch(fetchUrl, { credentials: 'omit' });
                 if (response.ok) {
                     const blob = await response.blob();
                     const base64 = await blobToBase64(blob);
                     storageImage.url = base64;
                 }
             } catch (err: any) {
-                // If fetch fails (CORS), we skip localization and keep the remote URL
-                console.warn("Media localization skipped (usually CORS). Keeping remote URL.", err.message);
+                // If fetch fails (usually CORS blocks), we KEEP the remote URL. 
+                // The browser will still render it, it just won't be saved for "offline" use.
+                console.warn("Media localization skipped (CORS/Network). Saving reference URL instead.", err.message);
             }
         }
 
@@ -220,7 +222,7 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         await tx.done;
         return getGallery();
     } catch (e) {
-        console.error("IDB Save Error:", e);
+        console.error("Critical Gallery Storage Error:", e);
         return getGallery();
     }
 };
