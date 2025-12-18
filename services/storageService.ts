@@ -7,21 +7,20 @@ const GALLERY_STORE_NAME = 'images';
 const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
 const API_KEY_STORAGE_KEY = 'nebula_api_key';
+const HF_TOKEN_STORAGE_KEY = 'nebula_hf_token';
 const ONBOARDING_KEY = 'nebula_mission_briefing_seen';
 const ACCESS_GRANTED_KEY = 'nebula_system_access_granted';
-const USAGE_STATS_KEY = 'nebula_usage_stats'; // New key for safety governor
+const USAGE_STATS_KEY = 'nebula_usage_stats';
 
 const MAX_GALLERY_ITEMS = 50; 
 const MAX_HISTORY_ITEMS = 20;
-const DEFAULT_DAILY_LIMIT = 50; // Default safety stop
+const DEFAULT_DAILY_LIMIT = 50;
 
 interface UsageStats {
     date: string;
     count: number;
     limit: number;
 }
-
-// --- Utility ---
 
 export const generateUUID = (): string => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -34,15 +33,12 @@ export const generateUUID = (): string => {
     });
 };
 
-// --- Safety Governor (Usage Limits) ---
-
 export const getUsageStats = (): UsageStats => {
     const today = new Date().toDateString();
     try {
         const stored = localStorage.getItem(USAGE_STATS_KEY);
         if (stored) {
             const stats: UsageStats = JSON.parse(stored);
-            // Reset if it's a new day
             if (stats.date !== today) {
                 const newStats = { date: today, count: 0, limit: stats.limit || DEFAULT_DAILY_LIMIT };
                 localStorage.setItem(USAGE_STATS_KEY, JSON.stringify(newStats));
@@ -50,11 +46,8 @@ export const getUsageStats = (): UsageStats => {
             }
             return stats;
         }
-    } catch (e) {
-        // Ignore error
-    }
+    } catch (e) {}
     
-    // Initialize
     const initial: UsageStats = { date: today, count: 0, limit: DEFAULT_DAILY_LIMIT };
     localStorage.setItem(USAGE_STATS_KEY, JSON.stringify(initial));
     return initial;
@@ -77,8 +70,6 @@ export const isLimitReached = (): boolean => {
     return stats.count >= stats.limit;
 };
 
-// --- Onboarding Logic ---
-
 export const hasSeenOnboarding = (): boolean => {
     try {
         return localStorage.getItem(ONBOARDING_KEY) === 'true';
@@ -90,12 +81,8 @@ export const hasSeenOnboarding = (): boolean => {
 export const markOnboardingSeen = () => {
     try {
         localStorage.setItem(ONBOARDING_KEY, 'true');
-    } catch (e) {
-        console.error("Failed to save onboarding status", e);
-    }
+    } catch (e) {}
 };
-
-// --- Access Code / Security Logic ---
 
 export const isAccessGranted = (): boolean => {
     try {
@@ -108,20 +95,14 @@ export const isAccessGranted = (): boolean => {
 export const grantAccess = () => {
     try {
         localStorage.setItem(ACCESS_GRANTED_KEY, 'true');
-    } catch (e) {
-        console.error("Failed to grant access", e);
-    }
+    } catch (e) {}
 };
 
 export const revokeAccess = () => {
     try {
         localStorage.removeItem(ACCESS_GRANTED_KEY);
-    } catch (e) {
-        console.error("Failed to revoke access", e);
-    }
+    } catch (e) {}
 };
-
-// --- API Key Management (BYOK) ---
 
 export const getStoredApiKey = (): string | null => {
     try {
@@ -134,20 +115,34 @@ export const getStoredApiKey = (): string | null => {
 export const saveApiKey = (key: string) => {
     try {
         localStorage.setItem(API_KEY_STORAGE_KEY, key);
-    } catch (e) {
-        console.error("Failed to save API key", e);
-    }
+    } catch (e) {}
 };
 
 export const removeStoredApiKey = () => {
     try {
         localStorage.removeItem(API_KEY_STORAGE_KEY);
+    } catch (e) {}
+};
+
+export const getStoredHfToken = (): string | null => {
+    try {
+        return localStorage.getItem(HF_TOKEN_STORAGE_KEY);
     } catch (e) {
-        console.error("Failed to remove API key", e);
+        return null;
     }
 };
 
-// --- Gallery Logic (IndexedDB) ---
+export const saveHfToken = (token: string) => {
+    try {
+        localStorage.setItem(HF_TOKEN_STORAGE_KEY, token);
+    } catch (e) {}
+};
+
+export const removeHfToken = () => {
+    try {
+        localStorage.removeItem(HF_TOKEN_STORAGE_KEY);
+    } catch (e) {}
+};
 
 const initDB = async () => {
     return openDB(GALLERY_DB_NAME, 1, {
@@ -166,7 +161,6 @@ export const getGallery = async (): Promise<GeneratedImage[]> => {
         const allItems = await db.getAllFromIndex(GALLERY_STORE_NAME, 'timestamp');
         return allItems.reverse();
     } catch (e) {
-        console.error("Failed to load gallery from IndexedDB", e);
         return [];
     }
 };
@@ -183,7 +177,6 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedImage[]> => {
     try {
         const db = await initDB();
-        
         let storageImage = { ...image };
         
         if (storageImage.url.startsWith('blob:')) {
@@ -192,9 +185,7 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                 const blob = await response.blob();
                 const base64 = await blobToBase64(blob);
                 storageImage.url = base64;
-            } catch (err) {
-                console.warn("Failed to convert blob to base64 for storage", err);
-            }
+            } catch (err) {}
         } else if (storageImage.type === 'video' && storageImage.url.startsWith('http')) {
             try {
                 const response = await fetch(storageImage.url);
@@ -203,33 +194,25 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                      const base64 = await blobToBase64(blob);
                      storageImage.url = base64;
                 }
-            } catch (err) {
-                console.warn("Could not cache video to IDB (likely CORS). Saved as remote link.", err);
-            }
+            } catch (err) {}
         }
 
         const tx = db.transaction(GALLERY_STORE_NAME, 'readwrite');
         const store = tx.objectStore(GALLERY_STORE_NAME);
-        
         await store.put(storageImage);
         
         const count = await store.count();
         if (count > MAX_GALLERY_ITEMS) {
             const index = store.index('timestamp');
             const keys = await index.getAllKeys();
-            
             const itemsToDelete = count - MAX_GALLERY_ITEMS;
             for (let i = 0; i < itemsToDelete; i++) {
-                if (keys[i]) {
-                    await store.delete(keys[i]);
-                }
+                if (keys[i]) await store.delete(keys[i]);
             }
         }
-        
         await tx.done;
         return getGallery();
     } catch (e) {
-        console.error("Failed to save to gallery", e);
         return getGallery();
     }
 };
@@ -240,12 +223,9 @@ export const removeFromGallery = async (id: string): Promise<GeneratedImage[]> =
         await db.delete(GALLERY_STORE_NAME, id);
         return getGallery();
     } catch (e) {
-        console.error("Failed to remove from gallery", e);
         return getGallery();
     }
 };
-
-// --- Template Logic (LocalStorage) ---
 
 const DEFAULT_TEMPLATES: PromptTemplate[] = [
     {
@@ -309,8 +289,6 @@ export const deleteTemplate = (id: string): PromptTemplate[] => {
     }
 };
 
-// --- Prompt History Logic (LocalStorage) ---
-
 export const getPromptHistory = (): string[] => {
     try {
         const stored = localStorage.getItem(PROMPT_HISTORY_KEY);
@@ -336,7 +314,5 @@ export const savePromptToHistory = (prompt: string): string[] => {
 export const clearPromptHistory = () => {
     try {
         localStorage.removeItem(PROMPT_HISTORY_KEY);
-    } catch (e) {
-        console.error("Failed to clear prompt history", e);
-    }
+    } catch (e) {}
 };

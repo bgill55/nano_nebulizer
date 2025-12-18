@@ -4,6 +4,7 @@ export enum ModelType {
     IMAGEN_4 = 'imagen-4.0-generate-001',
     GEMINI_PRO_IMAGE = 'gemini-3-pro-image-preview', 
     VEO_FAST = 'veo-3.1-fast-generate-preview',
+    HUGGING_FACE_FLUX = 'black-forest-labs/FLUX.1-schnell'
 }
 
 export type AppTheme = 'Nebula Dark' | 'Starlight Light';
