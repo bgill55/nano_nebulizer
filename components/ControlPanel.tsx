@@ -11,195 +11,27 @@ interface ControlPanelProps {
 }
 
 const PRESETS = [
-  {
-    id: 'anime',
-    label: 'Vivid Anime',
-    icon: Sparkles,
-    gradient: 'from-pink-500 to-rose-600',
-    config: {
-      style: 'Anime',
-      quality: 90,
-      steps: 50,
-      guidanceScale: 9
-    }
-  },
-  {
-    id: 'cinematic',
-    label: 'Cinematic',
-    icon: Aperture,
-    gradient: 'from-amber-600 to-orange-800',
-    config: {
-      style: 'Cinematic',
-      quality: 100,
-      steps: 60,
-      guidanceScale: 6
-    }
-  },
-  {
-    id: 'cyberpunk',
-    label: 'Neon Punk',
-    icon: Zap,
-    gradient: 'from-cyan-500 to-blue-700',
-    config: {
-      style: 'Cyberpunk',
-      quality: 95,
-      steps: 55,
-      guidanceScale: 11
-    }
-  },
-  {
-    id: 'photoreal',
-    label: 'Photoreal',
-    icon: Camera,
-    gradient: 'from-emerald-600 to-teal-800',
-    config: {
-      style: 'Photorealistic',
-      quality: 100,
-      steps: 80,
-      guidanceScale: 5
-    }
-  },
-  {
-    id: 'oil',
-    label: 'Oil Painting',
-    icon: Palette,
-    gradient: 'from-yellow-600 to-red-700',
-    config: {
-      style: 'Oil Painting',
-      quality: 85,
-      steps: 45,
-      guidanceScale: 7.5
-    }
-  },
-  {
-    id: '3d',
-    label: '3D Render',
-    icon: Box,
-    gradient: 'from-indigo-500 to-purple-700',
-    config: {
-      style: '3D Render',
-      quality: 90,
-      steps: 50,
-      guidanceScale: 8
-    }
-  },
-  {
-    id: 'pixel',
-    label: 'Pixel Art',
-    icon: Gamepad2,
-    gradient: 'from-purple-600 to-indigo-600',
-    config: {
-      style: 'Pixel Art',
-      quality: 90,
-      steps: 40,
-      guidanceScale: 8
-    }
-  },
-  {
-    id: 'fantasy',
-    label: 'Dark Fantasy',
-    icon: Ghost,
-    gradient: 'from-slate-700 to-black',
-    config: {
-      style: 'Dark Fantasy',
-      quality: 100,
-      steps: 60,
-      guidanceScale: 9
-    }
-  },
-  {
-    id: 'watercolor',
-    label: 'Watercolor',
-    icon: Droplets,
-    gradient: 'from-cyan-400 to-blue-400',
-    config: {
-      style: 'Watercolor',
-      quality: 90,
-      steps: 45,
-      guidanceScale: 7
-    }
-  },
-  {
-    id: 'vaporwave',
-    label: 'Vaporwave',
-    icon: Sunset,
-    gradient: 'from-pink-400 to-cyan-400',
-    config: {
-      style: 'Vaporwave',
-      quality: 95,
-      steps: 50,
-      guidanceScale: 10
-    }
-  },
-  {
-    id: 'origami',
-    label: 'Origami',
-    icon: Send,
-    gradient: 'from-orange-400 to-yellow-500',
-    config: {
-      style: 'Origami Paper Art',
-      quality: 90,
-      steps: 40,
-      guidanceScale: 12
-    }
-  },
-  {
-    id: 'isometric',
-    label: 'Isometric',
-    icon: Hexagon,
-    gradient: 'from-blue-500 to-cyan-500',
-    config: {
-      style: 'Isometric 3D',
-      quality: 95,
-      steps: 50,
-      guidanceScale: 8.5
-    }
-  }
+  { id: 'anime', label: 'Vivid Anime', icon: Sparkles, gradient: 'from-pink-500 to-rose-600', config: { style: 'Anime', quality: 90, steps: 50, guidanceScale: 9 } },
+  { id: 'cinematic', label: 'Cinematic', icon: Aperture, gradient: 'from-amber-600 to-orange-800', config: { style: 'Cinematic', quality: 100, steps: 60, guidanceScale: 6 } },
+  { id: 'cyberpunk', label: 'Neon Punk', icon: Zap, gradient: 'from-cyan-500 to-blue-700', config: { style: 'Cyberpunk', quality: 95, steps: 55, guidanceScale: 11 } },
+  { id: 'photoreal', label: 'Photoreal', icon: Camera, gradient: 'from-emerald-600 to-teal-800', config: { style: 'Photorealistic', quality: 100, steps: 80, guidanceScale: 5 } },
+  { id: 'oil', label: 'Oil Painting', icon: Palette, gradient: 'from-yellow-600 to-red-700', config: { style: 'Oil Painting', quality: 85, steps: 45, guidanceScale: 7.5 } },
+  { id: '3d', label: '3D Render', icon: Box, gradient: 'from-indigo-500 to-purple-700', config: { style: '3D Render', quality: 90, steps: 50, guidanceScale: 8 } },
+  { id: 'pixel', label: 'Pixel Art', icon: Gamepad2, gradient: 'from-purple-600 to-indigo-600', config: { style: 'Pixel Art', quality: 90, steps: 40, guidanceScale: 8 } },
+  { id: 'fantasy', label: 'Dark Fantasy', icon: Ghost, gradient: 'from-slate-700 to-black', config: { style: 'Dark Fantasy', quality: 100, steps: 60, guidanceScale: 9 } },
+  { id: 'watercolor', label: 'Watercolor', icon: Droplets, gradient: 'from-cyan-400 to-blue-400', config: { style: 'Watercolor', quality: 90, steps: 45, guidanceScale: 7 } },
+  { id: 'vaporwave', label: 'Vaporwave', icon: Sunset, gradient: 'from-pink-400 to-cyan-400', config: { style: 'Vaporwave', quality: 95, steps: 50, guidanceScale: 10 } },
+  { id: 'origami', label: 'Origami', icon: Send, gradient: 'from-orange-400 to-yellow-500', config: { style: 'Origami Paper Art', quality: 90, steps: 40, guidanceScale: 12 } },
+  { id: 'isometric', label: 'Isometric', icon: Hexagon, gradient: 'from-blue-500 to-cyan-500', config: { style: 'Isometric 3D', quality: 95, steps: 50, guidanceScale: 8.5 } }
 ];
 
 const VIDEO_PRESETS = [
-  {
-    id: 'cinematic_video',
-    label: 'Cinematic',
-    icon: Aperture,
-    gradient: 'from-amber-600 to-orange-800',
-    config: { style: 'Cinematic' }
-  },
-  {
-    id: 'drone',
-    label: 'Drone Shot',
-    icon: Send, 
-    gradient: 'from-cyan-500 to-blue-600',
-    config: { style: 'Drone Footage' }
-  },
-  {
-    id: 'vintage',
-    label: 'Vintage VHS',
-    icon: Film,
-    gradient: 'from-pink-500 to-rose-600',
-    config: { style: 'Vintage VHS' }
-  },
-  {
-    id: 'animation',
-    label: '3D Animation',
-    icon: Box,
-    gradient: 'from-purple-500 to-indigo-600',
-    config: { style: '3D Animation' }
-  },
-  {
-    id: 'cyberpunk_video',
-    label: 'Cyberpunk',
-    icon: Zap,
-    gradient: 'from-cyan-400 to-purple-500',
-    config: { style: 'Cyberpunk' }
-  },
-  {
-    id: 'nature',
-    label: 'Documentary',
-    icon: Sunset,
-    gradient: 'from-emerald-500 to-teal-600',
-    config: { style: 'Nature Documentary' }
-  }
+  { id: 'cinematic_video', label: 'Cinematic', icon: Aperture, gradient: 'from-amber-600 to-orange-800', config: { style: 'Cinematic' } },
+  { id: 'drone', label: 'Drone Shot', icon: Send, gradient: 'from-cyan-500 to-blue-600', config: { style: 'Drone Footage' } },
+  { id: 'vintage', label: 'Vintage VHS', icon: Film, gradient: 'from-pink-500 to-rose-600', config: { style: 'Vintage VHS' } },
+  { id: 'animation', label: '3D Animation', icon: Box, gradient: 'from-purple-500 to-indigo-600', config: { style: '3D Animation' } },
+  { id: 'cyberpunk_video', label: 'Cyberpunk', icon: Zap, gradient: 'from-cyan-400 to-purple-500', config: { style: 'Cyberpunk' } },
+  { id: 'nature', label: 'Documentary', icon: Sunset, gradient: 'from-emerald-500 to-teal-600', config: { style: 'Nature Documentary' } }
 ];
 
 const MagneticWrapper: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => {
@@ -288,16 +120,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
       }
   };
 
-  const activateQuantumMode = () => {
-    playPowerUp();
-    updateConfig('model', ModelType.GEMINI_PRO_IMAGE);
-    updateConfig('quality', 100);
-    updateConfig('steps', 150);
-    updateConfig('guidanceScale', 15);
-    updateConfig('imageSize', '4K');
-    if (onNotify) onNotify("QUANTUM MODE ENGAGED: Max fidelity applied.", 'warning');
-  };
-
   const availableRatios = config.mode === 'video' ? ['16:9', '9:16'] : ['1:1', '16:9', '9:16', '4:3', '3:4'];
   const presetsToDisplay = config.mode === 'video' ? VIDEO_PRESETS : PRESETS;
 
@@ -351,7 +173,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                 <div className="space-y-6">
                     <div className="space-y-2">
                         <label className={`text-xs font-semibold uppercase tracking-wider ml-1 ${isLight ? 'text-purple-600' : 'text-pink-400'}`}>AI Model</label>
-                        <Tooltip content="Select the AI architecture. Models from Hugging Face are free but require a personal token.">
+                        <Tooltip content="Select the AI architecture. Pro models offer higher resolution and detail.">
                             <div className="relative">
                                 <select 
                                     value={config.model}
@@ -360,22 +182,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                                 >
                                     {config.mode === 'image' ? (
                                         <>
-                                            <optgroup label="Google Vertex AI (Paid)">
-                                                <option value={ModelType.GEMINI_PRO_IMAGE}>Gemini 3.0 Pro</option>
-                                                <option value={ModelType.GEMINI_FLASH_IMAGE}>Gemini 2.5 Flash</option>
-                                                <option value={ModelType.IMAGEN_4}>Imagen 4</option>
-                                            </optgroup>
-                                            <optgroup label="Hugging Face (Free)">
-                                                <option value={ModelType.HUGGING_FACE_FLUX}>Flux.1 Schnell (FREE)</option>
-                                            </optgroup>
+                                            <option value={ModelType.GEMINI_PRO_IMAGE}>Gemini 3.0 Pro</option>
+                                            <option value={ModelType.GEMINI_FLASH_IMAGE}>Gemini 2.5 Flash</option>
+                                            <option value={ModelType.IMAGEN_4}>Imagen 4</option>
                                         </>
                                     ) : (
                                         <option value={ModelType.VEO_FAST}>Veo (Fast Video)</option>
                                     )}
                                 </select>
-                                <div className="absolute right-12 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    {config.model === ModelType.HUGGING_FACE_FLUX && <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">FREE</span>}
-                                </div>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"><svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg></div>
                             </div>
                         </Tooltip>

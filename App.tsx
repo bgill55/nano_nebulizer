@@ -48,7 +48,7 @@ const App: React.FC = () => {
   
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[] | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'info' | 'success' | 'warning' | 'error'} | null>(null);
-  const [showFreeTierSuggestion, setShowFreeTierSuggestion] = useState(false);
+  const [showFlashSuggestion, setShowFlashSuggestion] = useState(false);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [accessCodeInput, setAccessCodeInput] = useState('');
@@ -114,7 +114,7 @@ const App: React.FC = () => {
     if (notification) {
         const timer = setTimeout(() => {
             setNotification(null);
-        }, 5000);
+        }, 8000);
         return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -167,7 +167,7 @@ const App: React.FC = () => {
         await window.aistudio.openSelectKey();
         setHasKey(true);
         setNotification(null);
-        setShowFreeTierSuggestion(false);
+        setShowFlashSuggestion(false);
       } catch (e) {
         console.error("Key selection failed", e);
       }
@@ -202,11 +202,6 @@ const App: React.FC = () => {
           playError();
           showNotification("Access Denied. Invalid Clearance Code.", 'error');
       }
-  };
-
-  const handleSwitchToBYOK = () => {
-      setIsLocked(false);
-      setHasKey(false);
   };
 
   const updateConfig = (key: keyof AppConfig, value: any) => {
@@ -295,24 +290,23 @@ const App: React.FC = () => {
     }
   };
 
-  const switchToFreeTier = () => {
+  const switchToFlash = () => {
       updateConfig('model', ModelType.GEMINI_FLASH_IMAGE);
       setNotification(null);
-      setShowFreeTierSuggestion(false);
-      showNotification("Switched to Gemini Flash", 'info');
+      setShowFlashSuggestion(false);
+      showNotification("Engine Swapped to Gemini Flash. Ready for launch.", 'success');
+      playSuccess();
   };
 
   const handleGenerate = async () => {
     if (isLimitReached()) {
         playError();
-        showNotification("Daily Usage Limit Reached. Check Settings > Safety Governor to increase limit.", 'error');
-        setIsSettingsOpen(true);
+        showNotification("Daily Usage Limit Reached.", 'error');
         return;
     }
 
     if (!config.prompt.trim() && !config.inputImage) {
-      showNotification("Please describe the output you want to generate or upload a reference.", 'warning');
-      setShowFreeTierSuggestion(false);
+      showNotification("Please describe the output you want to generate.", 'warning');
       playError();
       return;
     }
@@ -320,7 +314,7 @@ const App: React.FC = () => {
     setIsGenerating(true);
     playPowerUp();
     setNotification(null);
-    setShowFreeTierSuggestion(false);
+    setShowFlashSuggestion(false);
     setGeneratedImages(null);
 
     if (config.prompt.trim()) {
@@ -358,7 +352,6 @@ const App: React.FC = () => {
        
              const baseSeed = config.seed === -1 ? Math.floor(Math.random() * 2000000000) : config.seed;
              
-             // Use allSettled so one network failure doesn't kill the whole batch
              const batchResults = await Promise.allSettled(Array.from({ length: config.batchSize }).map(async (_, index) => {
                  const effectiveSeed = baseSeed + index;
                  const url = await generateImage({ ...config, prompt: enhancedPrompt, seed: effectiveSeed });
@@ -392,10 +385,9 @@ const App: React.FC = () => {
                  incrementUsage(); 
                  playSuccess();
                  if (failedCount > 0) {
-                    showNotification(`${failedCount} item(s) in batch failed due to network errors.`, 'warning');
+                    showNotification(`${failedCount} item(s) in batch failed.`, 'warning');
                  }
              } else {
-                 // All items failed, throw the first error found
                  const firstError = (batchResults.find(res => res.status === 'rejected') as PromiseRejectedResult)?.reason;
                  throw firstError || new Error("All generation attempts failed.");
              }
@@ -404,12 +396,13 @@ const App: React.FC = () => {
       console.error(err);
       playError();
       const msg = err.message || "Failed to generate.";
-      if (msg.includes('403') || msg.toLowerCase().includes('permission')) {
+      
+      if (msg.includes('403') || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('quota')) {
           if (config.model !== ModelType.GEMINI_FLASH_IMAGE) {
-             showNotification("Permission denied. This model may require a paid billing account.", 'error');
-             setShowFreeTierSuggestion(true);
+             showNotification("Permission/Billing issue. Try Gemini Flash?", 'error');
+             setShowFlashSuggestion(true);
           } else {
-             showNotification("Permission denied. Please check your API Key settings.", 'error');
+             showNotification("Permission denied. Check API Key.", 'error');
           }
       } else {
           showNotification(msg, 'error');
@@ -513,10 +506,10 @@ const App: React.FC = () => {
       setGalleryImages(updated);
       incrementUsage();
       playSuccess();
-      showNotification("Image upscaled to 4K. Added to batch.", 'success');
+      showNotification("Image upscaled to 4K.", 'success');
     } catch (err: any) {
       console.error(err);
-      showNotification(err.message || "Failed to upscale image.", 'error');
+      showNotification(err.message || "Failed to upscale.", 'error');
       playError();
     } finally {
       setIsUpscaling(false);
@@ -554,7 +547,7 @@ const App: React.FC = () => {
     }));
     setIsGalleryOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showNotification("Settings restored from history.", 'info');
+    showNotification("Settings restored.", 'info');
   };
 
   const handleTemplateApply = (text: string) => {
@@ -579,40 +572,17 @@ const App: React.FC = () => {
                     </h1>
                   </div>
                   <div className="space-y-4">
-                      <p className="text-gray-300 font-light text-sm">
-                        This system is running in managed mode. Please enter the access code to use the hosted API key.
-                      </p>
+                      <p className="text-gray-300 font-light text-sm"> Managed system. Enter code to authorize.</p>
                       <div className="space-y-3">
                              <div className="relative">
                                 <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                                <input 
-                                    type="password"
-                                    placeholder="Enter Access Code..."
-                                    value={accessCodeInput}
-                                    onChange={(e) => setAccessCodeInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAccessCodeSubmit()}
-                                    className="w-full bg-[#131629] border border-red-500/20 rounded-xl py-3 pl-10 pr-4 text-white focus:border-red-500 focus:outline-none transition-colors text-center font-mono tracking-widest"
-                                />
+                                <input type="password" placeholder="Enter Access Code..." value={accessCodeInput} onChange={(e) => setAccessCodeInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAccessCodeSubmit()} className="w-full bg-[#131629] border border-red-500/20 rounded-xl py-3 text-white focus:border-red-500 focus:outline-none transition-colors text-center font-mono tracking-widest" />
                              </div>
-                             <button 
-                                onClick={handleAccessCodeSubmit}
-                                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-purple-700 font-bold text-white shadow-lg shadow-red-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
-                            >
-                                <Zap size={18} />
-                                Verify Identity
-                            </button>
-                            <div className="pt-4 border-t border-white/5 mt-4">
-                                <button onClick={handleSwitchToBYOK} className="text-xs text-gray-500 hover:text-white transition-colors underline decoration-dotted">I want to use my own Personal API Key</button>
-                            </div>
+                             <button onClick={handleAccessCodeSubmit} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-purple-700 font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2"><Zap size={18} /> Verify Identity</button>
                       </div>
                   </div>
                </div>
             </div>
-            {notification && (
-                <div className="fixed top-10 right-1/2 translate-x-1/2 z-[60] px-6 py-3 rounded-full bg-red-500/90 text-white shadow-xl backdrop-blur-md flex items-center gap-2 animate-in slide-in-from-top-4 fade-in">
-                    <AlertCircle size={18} /> {notification.message}
-                </div>
-            )}
         </div>
       );
   }
@@ -625,36 +595,16 @@ const App: React.FC = () => {
            <div className="bg-[#0b0e1e]/90 rounded-[22px] p-8 text-center space-y-8">
               <div className="relative">
                 <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full opacity-20 blur-xl animate-pulse"></div>
-                <h1 className="text-4xl font-bold font-rajdhani bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-white to-purple-400 relative">
-                  Nebula AI
-                </h1>
+                <h1 className="text-4xl font-bold font-rajdhani bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-white to-purple-400 relative">Nebula AI</h1>
               </div>
               <div className="space-y-4">
-                  <p className="text-gray-300 font-light text-lg">
-                    {window.aistudio ? "Connect your Google Cloud project to start generating art." : "Enter your Google Gemini API Key to initialize the core."}
-                  </p>
+                  <p className="text-gray-300 font-light text-lg">{window.aistudio ? "Connect Google Cloud to start." : "Enter Gemini API Key."}</p>
                   {window.aistudio ? (
-                    <button 
-                        onClick={handleApiKeySelect}
-                        className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-bold text-white shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
-                    >
-                        <Key size={18} className="group-hover:rotate-12 transition-transform"/>
-                        Connect API Key
-                    </button>
+                    <button onClick={handleApiKeySelect} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 group"><Key size={18} className="group-hover:rotate-12 transition-transform"/>Connect API Key</button>
                   ) : (
                     <div className="space-y-3">
-                         <div className="relative">
-                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                            <input 
-                                type="password"
-                                placeholder="Paste API Key here..."
-                                value={manualKey}
-                                onChange={(e) => setManualKey(e.target.value)}
-                                className="w-full bg-[#131629] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:border-cyan-500 focus:outline-none transition-colors"
-                            />
-                         </div>
-                         <button onClick={handleManualKeySubmit} disabled={!manualKey.trim()} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-bold text-white shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"><Zap size={18} /> Initialize System</button>
-                         <p className="text-[10px] text-gray-500">Key is stored locally in your browser.</p>
+                         <div className="relative"><Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} /><input type="password" placeholder="Paste API Key here..." value={manualKey} onChange={(e) => setManualKey(e.target.value)} className="w-full bg-[#131629] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:border-cyan-500 focus:outline-none transition-colors" /></div>
+                         <button onClick={handleManualKeySubmit} disabled={!manualKey.trim()} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 group disabled:opacity-50"><Zap size={18} /> Initialize System</button>
                     </div>
                   )}
               </div>
@@ -678,18 +628,18 @@ const App: React.FC = () => {
           </p>
         </div>
         {notification && (
-            <div className={`fixed top-24 right-4 z-[60] max-w-sm w-full border-l-4 p-4 rounded-r shadow-2xl animate-in slide-in-from-right-10 fade-in duration-300 flex items-start gap-3 backdrop-blur-md ${notification.type === 'error' ? 'bg-[#1e293b]/90 border-red-500 text-white' : notification.type === 'success' ? 'bg-[#1e293b]/90 border-green-500 text-white' : notification.type === 'warning' ? 'bg-[#1e293b]/90 border-yellow-500 text-white' : 'bg-[#1e293b]/90 border-cyan-500 text-white'}`}>
+            <div className={`fixed top-24 right-4 z-[60] max-w-sm w-full border-l-4 p-4 rounded-r shadow-2xl animate-in slide-in-from-right-10 fade-in duration-300 flex items-start gap-3 backdrop-blur-md ${notification.type === 'error' ? 'bg-[#1e293b]/95 border-red-500 text-white' : notification.type === 'success' ? 'bg-[#1e293b]/95 border-green-500 text-white' : notification.type === 'warning' ? 'bg-[#1e293b]/95 border-yellow-500 text-white' : 'bg-[#1e293b]/95 border-cyan-500 text-white'}`}>
                 {notification.type === 'error' && <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />}
                 {notification.type === 'success' && <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20} />}
                 {notification.type === 'warning' && <Zap className="text-yellow-500 shrink-0 mt-0.5" size={20} />}
                 {notification.type === 'info' && <Info className="text-cyan-500 shrink-0 mt-0.5" size={20} />}
                 <div className="flex-1">
-                   <p className="font-medium text-sm">{notification.message}</p>
-                   {showFreeTierSuggestion && (
-                     <button onClick={switchToFreeTier} className="mt-3 flex items-center gap-2 px-3 py-1.5 rounded bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-xs font-bold uppercase tracking-wider transition-all"><Zap size={12} className="fill-current" /> Switch to Free Model</button>
+                   <p className="font-medium text-sm leading-snug">{notification.message}</p>
+                   {showFlashSuggestion && (
+                     <button onClick={switchToFlash} className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"><Zap size={14} className="fill-current" /> Switch to Gemini Flash</button>
                    )}
                 </div>
-                <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-white">✕</button>
+                <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-white transition-colors">✕</button>
             </div>
         )}
         <div className="flex flex-col lg:flex-row gap-6 max-w-[1400px] mx-auto items-start">
@@ -712,7 +662,7 @@ const App: React.FC = () => {
          {(!window.aistudio && (getStoredApiKey() || isAccessGranted())) && (
             <button onClick={handleApiKeySelect} className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:scale-105 duration-300 group relative border ${isLight ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' : 'bg-red-900/50 border-red-500/30 text-red-400 hover:bg-red-900/80'}`} title="Disconnect / Lock"><LogOut size={20} /></button>
          )}
-        <button onClick={() => { setConfig(DEFAULT_CONFIG); setGeneratedImages(null); setPreviewImage(null); showNotification("All settings reset to default", 'info'); playClick(); }} className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:rotate-180 duration-500 group relative border ${isLight ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100' : 'bg-black/50 border-white/10 text-white hover:bg-white/10'}`} title="Reset All"><RefreshCcw size={20} /></button>
+        <button onClick={() => { setConfig(DEFAULT_CONFIG); setGeneratedImages(null); setPreviewImage(null); showNotification("System Reset Complete", 'info'); playClick(); }} className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:rotate-180 duration-500 group relative border ${isLight ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100' : 'bg-black/50 border-white/10 text-white hover:bg-white/10'}`} title="Reset All"><RefreshCcw size={20} /></button>
       </div>
       {generatedImages && generatedImages.length > 0 && (
         <GeneratedImageModal images={generatedImages} onClose={() => setGeneratedImages(null)} prompt={config.prompt} onUpscale={handleUpscale} isUpscaling={isUpscaling} onSave={handleSaveToGallery} onVariations={handleVariations} onEdit={handleEdit} onShare={handleShare} initiallySaved={true} enableAutoSpeak={config.enableAutoSpeak} />

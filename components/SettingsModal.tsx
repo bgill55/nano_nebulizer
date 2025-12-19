@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Moon, Sun, Key, CheckCircle, Monitor, Terminal, Shield, AlertTriangle, Lock, Cloud } from 'lucide-react';
 import { AppTheme } from '../types';
-import { getUsageStats, setDailyLimit, removeStoredApiKey, revokeAccess, getStoredHfToken, saveHfToken } from '../services/storageService';
+import { getUsageStats, setDailyLimit, removeStoredApiKey, revokeAccess } from '../services/storageService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -22,7 +22,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'general' | 'safety' | 'system'>('general');
   const [logs, setLogs] = useState<string[]>([]);
   const [usageStats, setUsageStats] = useState({ count: 0, limit: 50, date: '' });
-  const [hfToken, setHfToken] = useState('');
   
   const isLight = theme === 'Starlight Light';
 
@@ -31,8 +30,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         try {
             const stats = getUsageStats();
             if (stats) setUsageStats(stats);
-            const token = getStoredHfToken();
-            if (token) setHfToken(token);
         } catch (e) {}
     }
   }, [isOpen]);
@@ -42,7 +39,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen && activeTab === 'system') {
         setLogs([]);
         let step = 0;
-        const sequence = ["> Initializing Vertex AI...", "> Connecting to Hugging Face API...", "> Connection: READY", "> Multi-Cloud Mesh: ONLINE"];
+        const sequence = ["> Initializing Vertex AI...", "> Connecting to Neural Mesh...", "> Connection: READY", "> Node-Link: ONLINE"];
         interval = setInterval(() => {
             if (step < sequence.length) { setLogs(prev => [...prev, sequence[step]]); step++; }
             else { clearInterval(interval); }
@@ -54,11 +51,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleLimitChange = (val: number) => {
       setDailyLimit(val);
       setUsageStats(prev => ({ ...prev, limit: val }));
-  };
-
-  const handleHfTokenSave = () => {
-      saveHfToken(hfToken);
-      alert("Hugging Face token saved locally.");
   };
 
   const handlePanicDisconnect = () => {
@@ -88,20 +80,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 h-[480px] overflow-y-auto custom-scrollbar">
             {activeTab === 'general' && (
                 <div className="space-y-8 animate-in fade-in duration-300">
-                    <div className="space-y-3">
-                        <label className={`text-xs font-semibold uppercase tracking-wider ml-1 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Hugging Face Setup (Free Models)</label>
-                        <div className={`p-4 rounded-xl border space-y-3 ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#131629] border-white/5'}`}>
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg ${isLight ? 'bg-purple-100 text-purple-600' : 'bg-purple-500/10 text-purple-400'}`}><Cloud size={18} /></div>
-                                <div className={`text-sm font-medium ${isLight ? 'text-slate-700' : 'text-gray-200'}`}>Hugging Face Token</div>
-                            </div>
-                            <div className="flex gap-2">
-                                <input type="password" value={hfToken} onChange={(e) => setHfToken(e.target.value)} placeholder="hf_..." className={`flex-1 px-3 py-1.5 rounded-lg border text-xs outline-none focus:border-purple-500 ${isLight ? 'bg-white border-slate-200' : 'bg-black/20 border-white/10 text-white'}`} />
-                                <button onClick={handleHfTokenSave} className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-500">Save</button>
-                            </div>
-                            <p className="text-[10px] text-gray-500 italic">Required for Flux.1 Schnell model. Locally saved.</p>
-                        </div>
-                    </div>
                     <div className="space-y-3">
                         <label className={`text-xs font-semibold uppercase tracking-wider ml-1 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Interface Theme</label>
                         <div className="grid grid-cols-2 gap-3">

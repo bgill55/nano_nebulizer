@@ -7,7 +7,6 @@ const GALLERY_STORE_NAME = 'images';
 const TEMPLATE_STORAGE_KEY = 'nebula_templates';
 const PROMPT_HISTORY_KEY = 'nebula_prompt_history';
 const API_KEY_STORAGE_KEY = 'nebula_api_key';
-const HF_TOKEN_STORAGE_KEY = 'nebula_hf_token';
 const ONBOARDING_KEY = 'nebula_mission_briefing_seen';
 const ACCESS_GRANTED_KEY = 'nebula_system_access_granted';
 const USAGE_STATS_KEY = 'nebula_usage_stats';
@@ -124,26 +123,6 @@ export const removeStoredApiKey = () => {
     } catch (e) {}
 };
 
-export const getStoredHfToken = (): string | null => {
-    try {
-        return localStorage.getItem(HF_TOKEN_STORAGE_KEY);
-    } catch (e) {
-        return null;
-    }
-};
-
-export const saveHfToken = (token: string) => {
-    try {
-        localStorage.setItem(HF_TOKEN_STORAGE_KEY, token);
-    } catch (e) {}
-};
-
-export const removeHfToken = () => {
-    try {
-        localStorage.removeItem(HF_TOKEN_STORAGE_KEY);
-    } catch (e) {}
-};
-
 const initDB = async () => {
     return openDB(GALLERY_DB_NAME, 1, {
         upgrade(db) {
@@ -179,11 +158,9 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         const db = await initDB();
         let storageImage = { ...image };
         
-        // Convert URLs to Base64 for offline persistence if possible
         if (storageImage.url.startsWith('blob:') || storageImage.url.startsWith('http')) {
             try {
                 let fetchUrl = storageImage.url;
-                
                 if (fetchUrl.includes('generativelanguage.googleapis.com')) {
                     const key = process.env.API_KEY || getStoredApiKey();
                     if (key && !fetchUrl.includes('key=')) {
@@ -191,8 +168,6 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                         fetchUrl = `${fetchUrl}${separator}key=${key}`;
                     }
                 }
-
-                // Use no-cache to ensure we get the latest bits and credentials:omit to minimize CORS issues
                 const response = await fetch(fetchUrl, { credentials: 'omit' });
                 if (response.ok) {
                     const blob = await response.blob();
@@ -200,9 +175,7 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
                     storageImage.url = base64;
                 }
             } catch (err: any) {
-                // If fetch fails (usually CORS blocks), we KEEP the remote URL. 
-                // The browser will still render it, it just won't be saved for "offline" use.
-                console.warn("Media localization skipped (CORS/Network). Saving reference URL instead.", err.message);
+                console.warn("Media localization skipped.", err.message);
             }
         }
 
@@ -222,7 +195,6 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         await tx.done;
         return getGallery();
     } catch (e) {
-        console.error("Critical Gallery Storage Error:", e);
         return getGallery();
     }
 };
@@ -238,30 +210,10 @@ export const removeFromGallery = async (id: string): Promise<GeneratedImage[]> =
 };
 
 const DEFAULT_TEMPLATES: PromptTemplate[] = [
-    {
-        id: 'default-1',
-        name: 'Cinematic Portrait',
-        content: 'A cinematic portrait of [character], detailed facial features, dramatic lighting, [color] color palette, 8k resolution, photorealistic',
-        timestamp: Date.now()
-    },
-    {
-        id: 'default-2',
-        name: 'Isometric 3D',
-        content: 'Low poly isometric view of a [object/location], soft lighting, pastel colors, 3d render, blender, minimal design',
-        timestamp: Date.now()
-    },
-    {
-        id: 'default-3',
-        name: 'Cyberpunk City',
-        content: 'Futuristic cyberpunk city street at night, neon lights, rain reflections, [activity] in the foreground, towering skyscrapers, dystopian atmosphere',
-        timestamp: Date.now()
-    },
-    {
-        id: 'default-4',
-        name: 'Fantasy Landscape',
-        content: 'Epic fantasy landscape featuring a [landmark], magical atmosphere, floating islands, vibrant [color] sky, intricate details, matte painting',
-        timestamp: Date.now()
-    }
+    { id: 'default-1', name: 'Cinematic Portrait', content: 'A cinematic portrait of [character], detailed facial features, dramatic lighting, [color] color palette, 8k resolution, photorealistic', timestamp: Date.now() },
+    { id: 'default-2', name: 'Isometric 3D', content: 'Low poly isometric view of a [object/location], soft lighting, pastel colors, 3d render, blender, minimal design', timestamp: Date.now() },
+    { id: 'default-3', name: 'Cyberpunk City', content: 'Futuristic cyberpunk city street at night, neon lights, rain reflections, [activity] in the foreground, towering skyscrapers, dystopian atmosphere', timestamp: Date.now() },
+    { id: 'default-4', name: 'Fantasy Landscape', content: 'Epic fantasy landscape featuring a [landmark], magical atmosphere, floating islands, vibrant [color] sky, intricate details, matte painting', timestamp: Date.now() }
 ];
 
 export const getTemplates = (): PromptTemplate[] => {

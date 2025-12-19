@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Modality } from "@google/genai";
 import { AppConfig, ModelType } from "../types";
-import { getStoredApiKey, getStoredHfToken } from "./storageService";
+import { getStoredApiKey } from "./storageService";
 
 const getClient = () => {
     let apiKey = process.env.API_KEY;
@@ -21,32 +21,17 @@ const parseJsonPrompt = (input: string): string => {
         if (!trimmed.startsWith('{')) return input;
         const parsed = JSON.parse(trimmed);
         
-        const flattenObject = (obj: any, prefix = ''): string[] => {
+        const flattenObject = (obj: any): string[] => {
             let parts: string[] = [];
             for (const key in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                    const value = obj[key];
-                    const cleanKey = key.replace(/_/g, ' ');
-                    if (['confidence_score', 'metadata', 'technical_specs', 'id'].includes(key.toLowerCase())) continue;
-
-                    if (typeof value === 'string') {
-                        if (['prompt', 'text', 'description', 'content', 'value'].includes(key.toLowerCase())) {
-                            parts.push(value);
-                        } else {
-                            parts.push(`${cleanKey}: ${value}`);
-                        }
-                    } else if (typeof value === 'number' || typeof value === 'boolean') {
-                        parts.push(`${cleanKey}: ${value}`);
-                    } else if (Array.isArray(value)) {
-                        const arrayContent = value.map(v => {
-                            if (typeof v === 'object') return flattenObject(v).join(', ');
-                            return v;
-                        }).join(', ');
-                        if (arrayContent) parts.push(`${cleanKey}: ${arrayContent}`);
-                    } else if (typeof value === 'object' && value !== null) {
-                        const nested = flattenObject(value);
-                        if (nested.length > 0) parts.push(...nested);
-                    }
+                const value = obj[key];
+                if (['confidence_score', 'metadata', 'technical_specs', 'id'].includes(key.toLowerCase())) continue;
+                if (typeof value === 'string') {
+                    parts.push(['prompt', 'text'].includes(key.toLowerCase()) ? value : `${key}: ${value}`);
+                } else if (typeof value === 'number' || typeof value === 'boolean') {
+                    parts.push(`${key}: ${value}`);
+                } else if (Array.isArray(value)) {
+                    parts.push(`${key}: ${value.join(', ')}`);
                 }
             }
             return parts;
@@ -59,279 +44,9 @@ const parseJsonPrompt = (input: string): string => {
     }
 };
 
-export const enhancePrompt = async (input: string, style: string = 'None'): Promise<string> => {
-    const ai = getClient();
-    const model = 'gemini-3-pro-preview';
-    const cleanedInput = parseJsonPrompt(input);
-
-    const promptText = `
-    You are a legendary AI Art Director. Transform the input Concept into a "Hall of Fame" image prompt.
-    INPUTコンセプト: "${cleanedInput}"
-    TARGET STYLE: "${style}"
-    RULES: A single flowing paragraph. Describe lighting, texture, and camera details. Approx 50-100 words.
-    `;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: { parts: [{ text: promptText }] },
-            config: { temperature: 0.8 }
-        });
-        return response.text?.trim() || cleanedInput;
-    } catch (error) {
-        return cleanedInput; 
-    }
-};
-
-export const describeImage = async (imageBase64: string): Promise<string> => {
-    const ai = getClient();
-    const model = 'gemini-3-pro-preview';
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
-    const prompt = `Analyze the image and reverse-engineer a high-quality prompt. Output ONLY the raw prompt text.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: {
-                parts: [
-                    { text: prompt },
-                    { inlineData: { mimeType: mimeType, data: base64Data } }
-                ]
-            }
-        });
-        return response.text?.trim() || "Failed to analyze image.";
-    } catch (error) {
-        throw error;
-    }
-};
-
-export const extractStyle = async (imageBase64: string): Promise<string> => {
-    const ai = getClient();
-    const model = 'gemini-3-pro-preview';
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
-    const prompt = `Extract ONLY artistic style descriptors, visual technique, medium, and lighting keywords. No subject description. Format: Comma-separated list.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: {
-                parts: [
-                    { text: prompt },
-                    { inlineData: { mimeType: mimeType, data: base64Data } }
-                ]
-            }
-        });
-        return response.text?.trim() || "";
-    } catch (error) {
-        return "";
-    }
-};
-
-export const generateImageFromHf = async (prompt: string, model: string): Promise<string> => {
-    const token = getStoredHfToken();
-    if (!token || token.trim() === '') {
-        throw new Error("Hugging Face Token is empty. Please add your token in Settings to use Flux.");
-    }
-
-    try {
-        // Standardizing the headers and mode for maximum compatibility
-        const headers = new Headers();
-        headers.append("Authorization", `Bearer ${token.trim()}`);
-        headers.append("Content-Type", "application/json");
-
-        const requestOptions: RequestInit = {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({ 
-                inputs: prompt,
-                options: { 
-                    wait_for_model: true,
-                    use_cache: false 
-                }
-            }),
-            mode: 'cors',
-            cache: 'no-cache'
-        };
-
-        const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, requestOptions);
-
-        if (!response.ok) {
-            const errText = await response.text();
-            let errorMessage = `HF Error: ${response.status}`;
-            try {
-                const errJson = JSON.parse(errText);
-                errorMessage = errJson.error || errorMessage;
-            } catch(e) {}
-            
-            if (response.status === 401) throw new Error("Invalid Hugging Face Token. Check your settings.");
-            if (response.status === 404) throw new Error("Model not found on Hugging Face.");
-            if (response.status === 503) throw new Error("Hugging Face model is currently loading. Try again in 30 seconds.");
-            
-            throw new Error(errorMessage);
-        }
-
-        const resultBlob = await response.blob();
-        
-        // Safety check: sometimes APIs return a JSON error with a 200 status (rare but happens)
-        if (resultBlob.type.includes('json')) {
-            const text = await resultBlob.text();
-            const json = JSON.parse(text);
-            throw new Error(json.error || "Received JSON instead of an image from Hugging Face.");
-        }
-
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("Failed to process image data from Hugging Face."));
-            reader.readAsDataURL(resultBlob);
-        });
-    } catch (error: any) {
-        console.error("HF Fetch Details:", error);
-        
-        // If it's a generic TypeError, it's almost certainly a CORS/Network block by the browser
-        if (error.name === 'TypeError') {
-            throw new Error("Connection Blocked: The browser environment is preventing the request to Hugging Face. This usually happens in restricted sandboxes. Try running locally or switching to a Gemini model!");
-        }
-        throw error;
-    }
-};
-
-const decodeBase64 = (base64: string): Uint8Array => {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-    return bytes;
-};
-
-const rawDataToAudioBuffer = async (pcmData: Uint8Array, sampleRate = 24000): Promise<AudioBuffer> => {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate });
-    const inputData = new Int16Array(pcmData.buffer);
-    const float32Data = new Float32Array(inputData.length);
-    for (let i = 0; i < inputData.length; i++) float32Data[i] = inputData[i] / 32768.0;
-    const buffer = audioCtx.createBuffer(1, float32Data.length, sampleRate);
-    buffer.getChannelData(0).set(float32Data);
-    return buffer;
-};
-
-export const generateSpeech = async (text: string): Promise<string> => {
-    const ai = getClient();
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-            },
-        });
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (!base64Audio) throw new Error("No audio data returned");
-        return base64Audio;
-    } catch (error) {
-        throw error;
-    }
-};
-
-export const playAudioData = async (base64PCM: string) => {
-    try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        const pcmBytes = decodeBase64(base64PCM);
-        const buffer = await rawDataToAudioBuffer(pcmBytes, 24000);
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioCtx.destination);
-        source.start();
-        return { stop: () => source.stop(), duration: buffer.duration };
-    } catch (e) {
-        throw e;
-    }
-};
-
-export const detectStyleFromPrompt = async (prompt: string, availableStyles: string[]): Promise<string> => {
-    const lowerPrompt = parseJsonPrompt(prompt).toLowerCase();
-    const sortedStyles = [...availableStyles].sort((a, b) => b.length - a.length);
-    for (const style of sortedStyles) {
-        const keywords = [style.toLowerCase()];
-        if (style === 'Photorealistic') keywords.push('photoreal', 'realistic', 'photo', '4k');
-        if (keywords.some(k => lowerPrompt.includes(k))) return style;
-    }
-
-    const ai = getClient();
-    const model = 'gemini-3-pro-preview';
-    if (!prompt || prompt.trim().length < 5) return 'None';
-    const instruction = `Pick the BEST art style from [${availableStyles.join(', ')}] for: "${lowerPrompt}". Return ONLY the style name.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: { parts: [{ text: instruction }] }
-        });
-        const text = response.text?.trim();
-        return (text && availableStyles.includes(text)) ? text : 'None';
-    } catch (e) {
-        return 'None';
-    }
-};
-
-export const generateBackstory = async (imageBase64: string, prompt: string): Promise<string> => {
-    const ai = getClient();
-    const model = 'gemini-3-pro-preview'; 
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
-    const instructions = `Write a 50-word immersive Lore Entry for this subject. Context: ${parseJsonPrompt(prompt)}`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: {
-                parts: [{ text: instructions }, { inlineData: { mimeType: mimeType, data: base64Data } }]
-            }
-        });
-        return response.text || "Connection failed.";
-    } catch (error) {
-        return "Lore retrieval failed.";
-    }
-};
-
-export const shareMedia = async (url: string, title: string, text: string): Promise<void> => {
-    try {
-        let fetchUrl = url;
-        if (url.includes('generativelanguage.googleapis.com')) {
-             const key = process.env.API_KEY || getStoredApiKey();
-             if (key && !url.includes('key=')) {
-                const separator = url.includes('?') ? '&' : '?';
-                fetchUrl = `${url}${separator}key=${key}`;
-             }
-        }
-
-        const response = await fetch(fetchUrl);
-        if (!response.ok) throw new Error(`Share fetch failed: ${response.status}`);
-        const blob = await response.blob();
-        const file = new File([blob], `nebula-art-${Date.now()}.png`, { type: blob.type });
-        
-        if (navigator.share) {
-            await navigator.share({ title, text, files: [file] });
-        } else {
-            alert("Native sharing not supported on this browser.");
-        }
-    } catch (error: any) {
-        console.error("Share error:", error);
-        alert("Could not prepare media for sharing. Try downloading it instead.");
-    }
-};
-
 export const generateImage = async (config: AppConfig): Promise<string> => {
-    const { prompt, model, aspectRatio, style, negativePrompt, seed, imageSize } = config;
+    const { prompt, model, aspectRatio, style, imageSize } = config;
     let finalPrompt = parseJsonPrompt(prompt);
-
-    if (model === ModelType.HUGGING_FACE_FLUX) {
-        const hfPrompt = `${style !== 'None' ? style + ' style: ' : ''}${finalPrompt}`;
-        return await generateImageFromHf(hfPrompt, model);
-    }
 
     const ai = getClient();
     try {
@@ -365,64 +80,135 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
             for (const part of parts) {
                 if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
-            
-            const textPart = parts.find(p => p.text);
-            if (textPart?.text) throw new Error(`Model Refusal: ${textPart.text}`);
-            
-            throw new Error("Generation failed: No visual data returned.");
+            throw new Error("No image data returned from Gemini.");
         }
     } catch (error: any) {
-        if (error.name === 'TypeError' || error.message.includes('fetch')) {
-            throw new Error("Network error: Could not reach Google AI. Check your connection or API status.");
-        }
         throw error;
     }
+};
+
+export const describeImage = async (imageBase64: string): Promise<string> => {
+    const ai = getClient();
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: {
+            parts: [{ text: "Describe this image for an AI prompt." }, { inlineData: { mimeType, data: base64Data } }]
+        }
+    });
+    return response.text?.trim() || "Description failed.";
+};
+
+export const extractStyle = async (imageBase64: string): Promise<string> => {
+    const ai = getClient();
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: {
+            parts: [{ text: "Extract artistic style keywords only." }, { inlineData: { mimeType, data: base64Data } }]
+        }
+    });
+    return response.text?.trim() || "";
+};
+
+export const enhancePrompt = async (input: string, style: string = 'None'): Promise<string> => {
+    const ai = getClient();
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: { parts: [{ text: `Expand this into a master-level image prompt. Concept: ${input}. Style: ${style}` }] }
+    });
+    return response.text?.trim() || input;
+};
+
+export const generateSpeech = async (text: string): Promise<string> => {
+    const ai = getClient();
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text }] }],
+        config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+        },
+    });
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+};
+
+export const playAudioData = async (base64PCM: string) => {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    const binary = atob(base64PCM);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const inputData = new Int16Array(bytes.buffer);
+    const float32Data = new Float32Array(inputData.length);
+    for (let i = 0; i < inputData.length; i++) float32Data[i] = inputData[i] / 32768.0;
+    const buffer = audioCtx.createBuffer(1, float32Data.length, 24000);
+    buffer.getChannelData(0).set(float32Data);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start();
+    return { stop: () => source.stop(), duration: buffer.duration };
+};
+
+export const detectStyleFromPrompt = async (prompt: string, styles: string[]): Promise<string> => {
+    const ai = getClient();
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: { parts: [{ text: `Pick one style from [${styles.join(', ')}] that fits: "${prompt}". Return just the word.` }] }
+    });
+    return response.text?.trim() || "None";
+};
+
+export const generateBackstory = async (imageBase64: string, prompt: string): Promise<string> => {
+    const ai = getClient();
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: {
+            parts: [{ text: `Write a short immersive lore entry for this: ${prompt}` }, { inlineData: { mimeType, data: base64Data } }]
+        }
+    });
+    return response.text || "Lore unavailable.";
+};
+
+export const shareMedia = async (url: string, title: string, text: string): Promise<void> => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const file = new File([blob], "art.png", { type: blob.type });
+    if (navigator.share) await navigator.share({ title, text, files: [file] });
+};
+
+export const generateVideo = async (config: AppConfig): Promise<string> => {
+    const ai = getClient();
+    let operation = await ai.models.generateVideos({
+        model: ModelType.VEO_FAST,
+        prompt: config.prompt,
+        config: { numberOfVideos: 1, resolution: '720p', aspectRatio: config.aspectRatio as any }
+    });
+    while (!operation.done) {
+        await new Promise(r => setTimeout(r, 7000));
+        operation = await ai.operations.getVideosOperation({ operation: operation });
+    }
+    const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+    const key = process.env.API_KEY || getStoredApiKey();
+    return `${videoUri}${videoUri?.includes('?') ? '&' : '?'}key=${key}`;
 };
 
 export const upscaleImage = async (imageBase64: string, aspectRatio: string): Promise<string> => {
     const ai = getClient();
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
     const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
-    try {
-        const response = await ai.models.generateContent({
-            model: ModelType.GEMINI_PRO_IMAGE,
-            contents: {
-                parts: [{ text: "Refine and upscale this image to 4K resolution. Increase texture detail while keeping composition identical." }, { inlineData: { mimeType, data: base64Data } }]
-            },
-            config: { imageConfig: { aspectRatio, imageSize: '4K' } }
-        });
-        const parts = response.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-            if (part.inlineData) return `data:${mimeType};base64,${part.inlineData.data}`;
-        }
-        throw new Error("Upscale failed.");
-    } catch (error) {
-        throw error;
-    }
-};
-
-export const generateVideo = async (config: AppConfig): Promise<string> => {
-    const ai = getClient();
-    try {
-        let operation = await ai.models.generateVideos({
-            model: ModelType.VEO_FAST,
-            prompt: parseJsonPrompt(config.prompt),
-            config: { numberOfVideos: 1, resolution: '720p', aspectRatio: config.aspectRatio as '16:9' | '9:16' }
-        });
-        
-        while (!operation.done) {
-            await new Promise(r => setTimeout(r, 7000));
-            operation = await ai.operations.getVideosOperation({ operation: operation });
-        }
-
-        const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!videoUri) throw new Error("Video generation completed but no URI returned.");
-
-        const key = process.env.API_KEY || getStoredApiKey();
-        const separator = videoUri.includes('?') ? '&' : '?';
-        return key ? `${videoUri}${separator}key=${key}` : videoUri;
-    } catch (error: any) {
-        if (error.name === 'TypeError' || error.message.includes('fetch')) throw new Error("Network error during video polling.");
-        throw error;
-    }
+    const response = await ai.models.generateContent({
+        model: ModelType.GEMINI_PRO_IMAGE,
+        contents: {
+            parts: [{ text: "Upscale and refine this to 4K." }, { inlineData: { mimeType, data: base64Data } }]
+        },
+        config: { imageConfig: { aspectRatio, imageSize: '4K' } }
+    });
+    const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+    if (!part || !part.inlineData) throw new Error("Upscale failed.");
+    return `data:${mimeType};base64,${part.inlineData.data}`;
 };

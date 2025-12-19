@@ -3,8 +3,7 @@ export enum ModelType {
     GEMINI_FLASH_IMAGE = 'gemini-2.5-flash-image',
     IMAGEN_4 = 'imagen-4.0-generate-001',
     GEMINI_PRO_IMAGE = 'gemini-3-pro-image-preview', 
-    VEO_FAST = 'veo-3.1-fast-generate-preview',
-    HUGGING_FACE_FLUX = 'black-forest-labs/FLUX.1-schnell'
+    VEO_FAST = 'veo-3.1-fast-generate-preview'
 }
 
 export type AppTheme = 'Nebula Dark' | 'Starlight Light';
