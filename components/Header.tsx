@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Settings, Image, Grid, HelpCircle } from 'lucide-react';
+import { Settings, Image, Grid, HelpCircle, User } from 'lucide-react';
 import { AppTheme } from '../types';
 
 interface HeaderProps {
@@ -34,6 +34,17 @@ const Header: React.FC<HeaderProps> = ({ onOpenGallery, onOpenSettings, onOpenHe
           <Grid size={20} />
           <span className="text-sm hidden md:inline">Gallery</span>
         </button>
+      </div>
+
+      {/* COMMANDER IDENTITY BADGE */}
+      <div className="hidden lg:flex items-center gap-3 px-4 py-2 rounded-full border border-white/5 bg-white/5 backdrop-blur-md">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white shadow-lg border border-white/20">
+              <User size={16} />
+          </div>
+          <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400">Commander</span>
+              <span className={`text-xs font-bold font-rajdhani tracking-wider ${isLight ? 'text-slate-800' : 'text-white'}`}>bgill55_art</span>
+          </div>
       </div>
 
       <div className="flex items-center gap-2">
