@@ -8,6 +8,7 @@ export enum ModelType {
 
 export type AppTheme = 'Nebula Dark' | 'Starlight Light';
 export type GenerationMode = 'image' | 'video';
+export type SafetyThreshold = 'BLOCK_LOW_AND_ABOVE' | 'BLOCK_MEDIUM_AND_ABOVE' | 'BLOCK_ONLY_HIGH' | 'BLOCK_NONE';
 
 export interface AppConfig {
     mode: GenerationMode;
@@ -21,6 +22,7 @@ export interface AppConfig {
     guidanceScale: number; // 1-20
     seed: number; // Random seed
     enableNSFW: boolean;
+    safetyThreshold: SafetyThreshold; // New: Controls API filter toughness
     theme: AppTheme;
     imageSize: '1K' | '2K' | '4K';
     inputImage?: string | null; // Base64 data URL

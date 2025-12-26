@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { AppConfig, ModelType, AppTheme, GenerationMode } from '../types';
-import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon, Film, Volume2 } from 'lucide-react';
+import { AppConfig, ModelType, AppTheme, GenerationMode, SafetyThreshold } from '../types';
+import { Sparkles, Zap, Aperture, Palette, Box, Camera, Sliders, Cpu, LayoutTemplate, Settings2, Moon, Sun, ShieldAlert, Dice5, RefreshCw, Layers, Video, Image as ImageIcon, Gamepad2, Ghost, Droplets, Sunset, Send, Hexagon, Film, Volume2, ShieldCheck, Shield, BrainCircuit, Edit3 } from 'lucide-react';
 import { playClick, playPowerUp } from '../services/audioService';
 
 interface ControlPanelProps {
@@ -31,8 +31,28 @@ const VIDEO_PRESETS = [
   { id: 'vintage', label: 'Vintage VHS', icon: Film, gradient: 'from-pink-500 to-rose-600', config: { style: 'Vintage VHS' } },
   { id: 'animation', label: '3D Animation', icon: Box, gradient: 'from-purple-500 to-indigo-600', config: { style: '3D Animation' } },
   { id: 'cyberpunk_video', label: 'Cyberpunk', icon: Zap, gradient: 'from-cyan-400 to-purple-500', config: { style: 'Cyberpunk' } },
-  { id: 'nature', label: 'Documentary', icon: Sunset, gradient: 'from-emerald-500 to-teal-600', config: { style: 'Nature Documentary' } }
+  { id: 'documentary', label: 'Documentary', icon: Camera, gradient: 'from-emerald-500 to-teal-600', config: { style: 'Handheld Documentary' } },
+  { id: 'abstract', label: 'Abstract', icon: Palette, gradient: 'from-indigo-400 to-cyan-400', config: { style: 'Abstract Fluid Motion' } },
+  { id: 'experimental', label: 'Experimental', icon: BrainCircuit, gradient: 'from-red-500 to-purple-600', config: { style: 'Experimental Glitch' } },
+  { id: 'noir', label: 'Noir', icon: Moon, gradient: 'from-slate-700 to-black', config: { style: 'Film Noir' } },
+  { id: 'stopmotion', label: 'Stop Motion', icon: Ghost, gradient: 'from-orange-500 to-red-600', config: { style: 'Stop Motion Clay' } },
+  { id: 'sketch', label: 'Sketch', icon: Edit3, gradient: 'from-yellow-400 to-orange-500', config: { style: 'Animated Pencil Sketch' } },
+  { id: 'surreal', label: 'Surreal', icon: Sparkles, gradient: 'from-pink-400 to-indigo-400', config: { style: 'Surreal Dream' } }
 ];
+
+const SafetyThresholdMap: Record<number, SafetyThreshold> = {
+    0: 'BLOCK_LOW_AND_ABOVE',
+    1: 'BLOCK_MEDIUM_AND_ABOVE',
+    2: 'BLOCK_ONLY_HIGH',
+    3: 'BLOCK_NONE'
+};
+
+const ReverseSafetyThresholdMap: Record<string, number> = {
+    'BLOCK_LOW_AND_ABOVE': 0,
+    'BLOCK_MEDIUM_AND_ABOVE': 1,
+    'BLOCK_ONLY_HIGH': 2,
+    'BLOCK_NONE': 3
+};
 
 const MagneticWrapper: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => {
     const ref = useRef<HTMLDivElement>(null);
@@ -228,9 +248,22 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ config, updateConfig, onNot
                     <SliderControl label="Quality / Fidelity" icon={Sparkles} value={config.quality} onChange={(val: number) => updateConfig('quality', val)} min={0} max={100} displayValue={`${config.quality}%`} description="Controls artistic fidelity. Higher values take longer." isLight={isLight} />
                     <SliderControl label="Inference Steps" icon={Layers} value={config.steps} onChange={(val: number) => updateConfig('steps', val)} min={10} max={150} description="More steps = more detail." isLight={isLight} />
                     <SliderControl label="Guidance Scale" icon={Zap} value={config.guidanceScale} onChange={(val: number) => updateConfig('guidanceScale', val)} min={1} max={20} step={0.5} displayValue={config.guidanceScale} description="Strictness of prompt adherence." isLight={isLight} />
+                    
                     <div className="space-y-4">
+                        <SliderControl 
+                            label="Safety Governor" 
+                            icon={Shield} 
+                            value={ReverseSafetyThresholdMap[config.safetyThreshold] || 2} 
+                            onChange={(val: number) => updateConfig('safetyThreshold', SafetyThresholdMap[val])} 
+                            min={0} 
+                            max={3} 
+                            displayValue={config.safetyThreshold === 'BLOCK_NONE' ? 'RELAXED (Admin)' : config.safetyThreshold === 'BLOCK_ONLY_HIGH' ? 'BALANCED' : 'STRICT'}
+                            description="Relaxes model content filters. 'Relaxed' reduces prompt rejection for borderline art." 
+                            isLight={isLight} 
+                        />
+                        
                         <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${isLight ? 'bg-white border-slate-200' : 'bg-[#131629] border-white/5'}`}>
-                            <div className="flex justify-between items-center mb-4"><span className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}><ShieldAlert size={14} className={isLight ? 'text-red-500' : 'text-red-400'} /> NSFW Filter</span><button onClick={() => updateConfig('enableNSFW', !config.enableNSFW)} className={`w-12 h-6 rounded-full transition-colors relative ${config.enableNSFW ? 'bg-red-500' : (isLight ? 'bg-slate-200' : 'bg-gray-700')}`}><span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${config.enableNSFW ? 'translate-x-6' : ''}`} /></button></div>
+                            <div className="flex justify-between items-center mb-4"><span className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}><ShieldAlert size={14} className={isLight ? 'text-red-500' : 'text-red-400'} /> NSFW Filter (Soft)</span><button onClick={() => updateConfig('enableNSFW', !config.enableNSFW)} className={`w-12 h-6 rounded-full transition-colors relative ${config.enableNSFW ? 'bg-red-500' : (isLight ? 'bg-slate-200' : 'bg-gray-700')}`}><span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${config.enableNSFW ? 'translate-x-6' : ''}`} /></button></div>
                         </div>
                         <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${isLight ? 'bg-white border-slate-200' : 'bg-[#131629] border-white/5'}`}>
                             <div className="flex justify-between items-center mb-4"><span className={`text-sm font-medium flex items-center gap-2 ${isLight ? 'text-slate-700' : 'text-gray-200'}`}><Volume2 size={14} className={isLight ? 'text-cyan-500' : 'text-cyan-400'} /> Auto-Narrate</span><button onClick={() => updateConfig('enableAutoSpeak', !config.enableAutoSpeak)} className={`w-12 h-6 rounded-full transition-colors relative ${config.enableAutoSpeak ? 'bg-cyan-500' : (isLight ? 'bg-slate-200' : 'bg-gray-700')}`}><span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${config.enableAutoSpeak ? 'translate-x-6' : ''}`} /></button></div>

@@ -4,6 +4,7 @@
 
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
+let activeLoop: { stop: () => void } | null = null;
 
 const initAudio = () => {
     if (!audioContext) {
@@ -27,7 +28,7 @@ const vibrate = (pattern: number | number[]) => {
 
 export const playClick = (pitch: number = 800) => {
     try {
-        vibrate(10); // Short tick
+        vibrate(10); 
 
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;
@@ -47,9 +48,7 @@ export const playClick = (pitch: number = 800) => {
 
         osc.start();
         osc.stop(ctx.currentTime + 0.05);
-    } catch (e) {
-        // Audio not supported or blocked
-    }
+    } catch (e) { }
 };
 
 export const playHover = () => {
@@ -76,34 +75,45 @@ export const playHover = () => {
 
 export const playPowerUp = () => {
     try {
-        vibrate([30, 30, 50]); // Revving engine feeling
+        vibrate([30, 30, 50]); 
 
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;
+
+        // Stop any existing loop
+        if (activeLoop) {
+            activeLoop.stop();
+            activeLoop = null;
+        }
 
         // 1. Low rumble (Turbine)
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
         osc1.type = 'sawtooth';
         osc1.frequency.setValueAtTime(50, ctx.currentTime);
-        osc1.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 2.0);
+        osc1.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 5.0);
         
         gain1.gain.setValueAtTime(0, ctx.currentTime);
-        gain1.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.5);
-        gain1.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.5);
+        gain1.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 1.0);
 
-        // 2. High pitch sweep (Capacitor charge)
+        // 2. Pulse modulation
+        const lfo = ctx.createOscillator();
+        const lfoGain = ctx.createGain();
+        lfo.frequency.value = 10;
+        lfoGain.gain.value = 0.1;
+        lfo.connect(lfoGain);
+        lfoGain.connect(gain1.gain);
+
+        // 3. High pitch sweep
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
         osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(200, ctx.currentTime);
-        osc2.frequency.exponentialRampToValueAtTime(2000, ctx.currentTime + 2.5);
+        osc2.frequency.setValueAtTime(400, ctx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 10.0);
 
         gain2.gain.setValueAtTime(0, ctx.currentTime);
-        gain2.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 1.0);
-        gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.5);
+        gain2.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 2.0);
 
-        // Connect
         osc1.connect(gain1);
         gain1.connect(master);
         osc2.connect(gain2);
@@ -111,21 +121,37 @@ export const playPowerUp = () => {
 
         osc1.start();
         osc2.start();
-        
-        osc1.stop(ctx.currentTime + 2.5);
-        osc2.stop(ctx.currentTime + 2.5);
+        lfo.start();
+
+        activeLoop = {
+            stop: () => {
+                const now = ctx.currentTime;
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc1.stop(now + 0.5);
+                osc2.stop(now + 0.5);
+                lfo.stop(now + 0.5);
+            }
+        };
     } catch (e) { }
+};
+
+export const stopHyperspaceLoop = () => {
+    if (activeLoop) {
+        activeLoop.stop();
+        activeLoop = null;
+    }
 };
 
 export const playSuccess = () => {
     try {
-        vibrate([50, 50, 50]); // Success pulse
+        stopHyperspaceLoop();
+        vibrate([50, 50, 50]); 
 
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;
 
-        // Major Chord Arpeggio (C Major 7: C, E, G, B)
-        const notes = [523.25, 659.25, 783.99, 987.77]; // C5, E5, G5, B5
+        const notes = [523.25, 659.25, 783.99, 987.77]; 
         
         notes.forEach((freq, i) => {
             const osc = ctx.createOscillator();
@@ -134,7 +160,6 @@ export const playSuccess = () => {
             osc.type = 'sine';
             osc.frequency.value = freq;
             
-            // Stagger start times for arpeggio effect
             const startTime = ctx.currentTime + (i * 0.05);
             const duration = 1.5;
 
@@ -149,27 +174,13 @@ export const playSuccess = () => {
             osc.stop(startTime + duration);
         });
         
-        // Sparkle overlay
-        const oscNoise = ctx.createOscillator();
-        const gainNoise = ctx.createGain();
-        oscNoise.type = 'triangle';
-        oscNoise.frequency.setValueAtTime(2000, ctx.currentTime);
-        oscNoise.frequency.linearRampToValueAtTime(3000, ctx.currentTime + 0.5);
-        
-        gainNoise.gain.setValueAtTime(0.05, ctx.currentTime);
-        gainNoise.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
-        
-        oscNoise.connect(gainNoise);
-        gainNoise.connect(master);
-        oscNoise.start();
-        oscNoise.stop(ctx.currentTime + 0.5);
-
     } catch (e) { }
 };
 
 export const playError = () => {
     try {
-        vibrate([50, 100, 50]); // Error buzz
+        stopHyperspaceLoop();
+        vibrate([50, 100, 50]); 
 
         const { ctx, master } = initAudio();
         if (!ctx || !master) return;

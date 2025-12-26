@@ -47,25 +47,25 @@ const LOADING_PHASES = [
 
 const VIDEO_PROMPTS = [
     "Cinematic drone shot flying over a futuristic cyberpunk city at night, neon lights reflecting on wet pavement, 4k resolution.",
+    "Abstract fluid dynamics: Swirling vibrant ink colors in zero gravity, morphing shapes, slow motion.",
+    "Experimental glitch art: A person's face digitizing and fragmenting into neon data streams, synthwave aesthetic.",
+    "Film Noir: A mysterious figure in a trench coat walking through heavy fog under a streetlamp, dramatic shadows.",
+    "Stop motion clay: A small dinosaur made of clay discovering a giant cookie and taking a bite, charming texture.",
+    "Animated pencil sketch: A hand drawing a butterfly that suddenly comes to life and flies off the page.",
+    "Surreal dream: A giant clock melting over a waterfall made of sparkling starlight, dreamlike atmosphere.",
+    "Nature Documentary: Close-up of a rare tropical bird performing a complex mating dance in a lush rainforest.",
     "Aerial view of a jagged coastline with crashing waves, slow motion, moody overcast sky.",
     "A camera flying through a dense jungle, revealing a hidden ancient stone temple, sunlight streaming through leaves.",
-    "FPV drone shot racing through a narrow canyon, speed lines, motion blur, high adrenaline.",
     "Wide shot of a spaceship landing on a dusty red planet, thrusters kicking up dust clouds, cinematic lighting.",
     "A majestic lion running across the African savanna during golden hour, dust kicking up, slow motion.",
-    "Time-lapse of a flower blooming, vibrant colors, soft lighting, macro perspective, 4k.",
     "Underwater footage of a coral reef with colorful fish swimming, sun rays penetrating the water.",
-    "A cute red panda eating bamboo in a lush green bamboo forest, sunlight filtering through leaves, wildlife documentary style.",
-    "A wolf howling at a giant full moon, silhouette against the night sky, wind blowing through fur.",
     "A cyberpunk samurai drawing their katana in the rain, neon reflections on the blade, slow motion.",
     "A futuristic car driving fast through a tunnel of light, motion blur, synthwave aesthetic.",
     "A robot hand assembling a mechanical watch, sparks flying, high detail macro, precise movements.",
-    "A chef chopping vegetables rapidly in a professional kitchen, steam rising from pots, dynamic camera angle.",
-    "An astronaut floating in zero gravity inside a spaceship corridor, spinning slowly, intricate sci-fi details.",
-    "A liquid gold simulation pouring over a black sphere, splashing and flowing, abstract 3d render style.",
-    "A storm brewing over the ocean, dark clouds swirling, lightning strikes, cinematic visual effects.",
-    "A retro 80s vaporwave grid landscape moving forward endlessly, purple sun setting, synthwave vibe.",
-    "Close-up of a human eye blinking, with a galaxy reflection in the iris, macro shot.",
-    "Explosion of colorful powder paint in slow motion against a black background, 4k resolution."
+    "Explosion of colorful powder paint in slow motion against a black background, 4k resolution.",
+    "Handheld documentary style: Close-up of a street artist creating a masterpiece in a busy city square.",
+    "Abstract kaleidoscopic patterns of geometric light shifting and pulsating to an unheard rhythm.",
+    "Vintage VHS: A found footage style recording of a mysterious glowing object in a dark forest."
 ];
 
 const SURPRISE_PROMPTS = [
@@ -640,7 +640,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border shadow-lg
                         ${isLight 
                             ? 'bg-pink-50 border-pink-200 text-pink-600 hover:bg-pink-100' 
-                            : 'bg-pink-500/20 border-pink-500/30 text-pink-300 hover:bg-pink-500/30 hover:border-pink-500/50'}
+                            : 'bg-pink-500/20 border-pink-500/30 text-indigo-300 hover:bg-pink-500/30 hover:border-pink-500/50'}
                     `}
                     title="Extract Art Style (Steal Style)"
                   >

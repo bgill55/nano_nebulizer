@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Modality } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Modality, Type } from "@google/genai";
 import { AppConfig, ModelType } from "../types";
 import { getStoredApiKey } from "./storageService";
 
@@ -45,8 +45,12 @@ const parseJsonPrompt = (input: string): string => {
 };
 
 export const generateImage = async (config: AppConfig): Promise<string> => {
-    const { prompt, model, aspectRatio, style, imageSize } = config;
+    const { prompt, model, aspectRatio, style, imageSize, safetyThreshold } = config;
     let finalPrompt = parseJsonPrompt(prompt);
+
+    if (safetyThreshold === 'BLOCK_NONE') {
+        finalPrompt = `Artistic expression, fine art photography: ${finalPrompt}`;
+    }
 
     const ai = getClient();
     try {
@@ -59,6 +63,15 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
             if (response.generatedImages?.[0]) return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
             throw new Error("Imagen generation failed.");
         } else {
+            const thresholdMap: Record<string, HarmBlockThreshold> = {
+                'BLOCK_LOW_AND_ABOVE': HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+                'BLOCK_MEDIUM_AND_ABOVE': HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+                'BLOCK_ONLY_HIGH': HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                'BLOCK_NONE': HarmBlockThreshold.BLOCK_NONE
+            };
+
+            const selectedThreshold = thresholdMap[safetyThreshold] || HarmBlockThreshold.BLOCK_ONLY_HIGH;
+
             const response = await ai.models.generateContent({
                 model: model,
                 contents: { parts: [{ text: `Generate image: ${finalPrompt} (Style: ${style})` }] },
@@ -68,10 +81,10 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
                         imageSize: model === ModelType.GEMINI_PRO_IMAGE ? imageSize : undefined 
                     },
                     safetySettings: [
-                        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-                        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: selectedThreshold },
+                        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: selectedThreshold },
+                        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: selectedThreshold },
+                        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: selectedThreshold },
                     ]
                 }
             });
@@ -80,7 +93,7 @@ export const generateImage = async (config: AppConfig): Promise<string> => {
             for (const part of parts) {
                 if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
-            throw new Error("No image data returned from Gemini.");
+            throw new Error("No image data returned.");
         }
     } catch (error: any) {
         throw error;
@@ -113,13 +126,45 @@ export const extractStyle = async (imageBase64: string): Promise<string> => {
     return response.text?.trim() || "";
 };
 
-export const enhancePrompt = async (input: string, style: string = 'None'): Promise<string> => {
+/**
+ * Updated to return a list of 3 structured prompt choices
+ */
+export interface EnhancedPromptChoice {
+    title: string;
+    prompt: string;
+}
+
+export const enhancePrompt = async (input: string, style: string = 'None'): Promise<EnhancedPromptChoice[]> => {
     const ai = getClient();
     const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: { parts: [{ text: `Expand this into a master-level image prompt. Concept: ${input}. Style: ${style}` }] }
+        contents: { 
+            parts: [{ text: `Expand this concept into 3 distinct master-level image prompts. 
+                Concept: ${input}. Style: ${style}. 
+                Provide a short title for each variation (e.g. 'Atmospheric', 'Hyper-Detailed', 'Abstract Interpretation').` }] 
+        },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        prompt: { type: Type.STRING }
+                    },
+                    required: ["title", "prompt"]
+                }
+            }
+        }
     });
-    return response.text?.trim() || input;
+
+    try {
+        const json = JSON.parse(response.text || "[]");
+        return Array.isArray(json) ? json : [{ title: "Enhanced", prompt: response.text || input }];
+    } catch (e) {
+        return [{ title: "Enhanced", prompt: response.text || input }];
+    }
 };
 
 export const generateSpeech = async (text: string): Promise<string> => {

@@ -158,7 +158,9 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         const db = await initDB();
         let storageImage = { ...image };
         
-        if (storageImage.url.startsWith('blob:') || storageImage.url.startsWith('http')) {
+        // CRITICAL FIX: Only attempt to localize images. 
+        // Localizing videos as Base64 in IndexedDB will cause QuotaExceededError and crash the app.
+        if (storageImage.type === 'image' && (storageImage.url.startsWith('blob:') || storageImage.url.startsWith('http'))) {
             try {
                 let fetchUrl = storageImage.url;
                 if (fetchUrl.includes('generativelanguage.googleapis.com')) {
@@ -195,6 +197,7 @@ export const saveToGallery = async (image: GeneratedImage): Promise<GeneratedIma
         await tx.done;
         return getGallery();
     } catch (e) {
+        console.error("Gallery save failed:", e);
         return getGallery();
     }
 };

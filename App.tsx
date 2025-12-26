@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Background from './components/Background';
@@ -11,10 +10,10 @@ import TemplateModal from './components/TemplateModal';
 import SettingsModal from './components/SettingsModal';
 import OnboardingModal from './components/OnboardingModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
-import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia, describeImage, extractStyle } from './services/geminiService';
+import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia, describeImage, extractStyle, EnhancedPromptChoice } from './services/geminiService';
 import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen, isAccessGranted, grantAccess, revokeAccess, isLimitReached, incrementUsage } from './services/storageService';
-import { playPowerUp, playSuccess, playError, playClick } from './services/audioService';
-import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut, ShieldCheck, Lock } from 'lucide-react';
+import { playPowerUp, playSuccess, playError, playClick, stopHyperspaceLoop } from './services/audioService';
+import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut, ShieldCheck, Lock, Activity, Sparkles, X, ChevronRight } from 'lucide-react';
 
 const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, bad anatomy, ugly, pixelated, watermark, text, signature, worst quality, deformed, disfigured, cropped, mutation, bad proportions, extra limbs, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck";
 
@@ -32,6 +31,7 @@ const DEFAULT_CONFIG: AppConfig = {
   guidanceScale: 7.5,
   seed: -1, 
   enableNSFW: false,
+  safetyThreshold: 'BLOCK_ONLY_HIGH',
   theme: 'Nebula Dark',
   imageSize: '1K',
   inputImage: null,
@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [isUpscaling, setIsUpscaling] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
   
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[] | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'info' | 'success' | 'warning' | 'error'} | null>(null);
@@ -63,37 +64,44 @@ const App: React.FC = () => {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // New Enhancement State
+  const [enhancementChoices, setEnhancementChoices] = useState<EnhancedPromptChoice[] | null>(null);
+
   const isLight = config.theme === 'Starlight Light';
 
   useEffect(() => {
     const init = async () => {
-      if (process.env.API_KEY && process.env.API_KEY !== '') {
-          if (isAccessGranted()) {
-              setHasKey(true);
-              setIsLocked(false);
-          } else {
-              setHasKey(true);
-              setIsLocked(true);
-          }
-      } 
-      else if (window.aistudio && window.aistudio.hasSelectedApiKey) {
-        const has = await window.aistudio.hasSelectedApiKey();
-        setHasKey(has);
-        setIsLocked(false);
-      } 
-      else {
-        const stored = getStoredApiKey();
-        setHasKey(!!stored);
-        setIsLocked(false);
-      }
-      
-      const imgs = await getGallery();
-      setGalleryImages(imgs);
+      try {
+        if (process.env.API_KEY && process.env.API_KEY !== '') {
+            if (isAccessGranted()) {
+                setHasKey(true);
+                setIsLocked(false);
+            } else {
+                setHasKey(true);
+                setIsLocked(true);
+            }
+        } 
+        else if (window.aistudio && window.aistudio.hasSelectedApiKey) {
+          const has = await window.aistudio.hasSelectedApiKey();
+          setHasKey(has);
+          setIsLocked(false);
+        } 
+        else {
+          const stored = getStoredApiKey();
+          setHasKey(!!stored);
+          setIsLocked(false);
+        }
+        
+        const imgs = await getGallery();
+        setGalleryImages(imgs);
 
-      if (!hasSeenOnboarding() && !isLocked) {
-          setTimeout(() => {
-              setIsOnboardingOpen(true);
-          }, 1000); 
+        if (!hasSeenOnboarding() && !isLocked) {
+            setTimeout(() => {
+                setIsOnboardingOpen(true);
+            }, 1000); 
+        }
+      } catch (e) {
+          console.error("Initialization failed", e);
       }
     };
     init();
@@ -225,15 +233,22 @@ const App: React.FC = () => {
     setIsEnhancing(true);
     setNotification(null);
     try {
-        const enhanced = await enhancePrompt(config.prompt, config.style);
-        updateConfig('prompt', enhanced);
-        showNotification("Prompt enhanced using Gemini 3.0 Pro reasoning.", 'success');
+        const choices = await enhancePrompt(config.prompt, config.style);
+        setEnhancementChoices(choices);
+        playSuccess();
     } catch (err: any) {
         console.error(err);
         showNotification("Failed to enhance prompt.", 'error');
     } finally {
         setIsEnhancing(false);
     }
+  };
+
+  const selectEnhancedPrompt = (chosenPrompt: string) => {
+      playClick();
+      updateConfig('prompt', chosenPrompt);
+      setEnhancementChoices(null);
+      showNotification("Magic prompt applied!", 'success');
   };
 
   const handleDescribeImage = async () => {
@@ -339,8 +354,14 @@ const App: React.FC = () => {
                 negativePrompt: config.negativePrompt,
                 style: config.style
              };
-             const updatedGallery = await saveToGallery(newVideo);
-             setGalleryImages(updatedGallery);
+             
+             try {
+                const updatedGallery = await saveToGallery(newVideo);
+                setGalleryImages(updatedGallery);
+             } catch (storageErr) {
+                console.warn("Saving to gallery failed", storageErr);
+             }
+             
              setGeneratedImages([newVideo]);
              incrementUsage(); 
              playSuccess();
@@ -378,7 +399,9 @@ const App: React.FC = () => {
              if (successfulImages.length > 0) {
                  let currentGallery = galleryImages;
                  for (const img of successfulImages) {
-                     currentGallery = await saveToGallery(img);
+                     try {
+                        currentGallery = await saveToGallery(img);
+                     } catch (e) {}
                  }
                  setGalleryImages(currentGallery);
                  setGeneratedImages(successfulImages);
@@ -397,7 +420,9 @@ const App: React.FC = () => {
       playError();
       const msg = err.message || "Failed to generate.";
       
-      if (msg.includes('403') || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('quota')) {
+      if (msg.toLowerCase().includes('safety') || msg.toLowerCase().includes('blocked')) {
+          showNotification("Generation blocked by model filters.", 'error');
+      } else if (msg.includes('403') || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('quota')) {
           if (config.model !== ModelType.GEMINI_FLASH_IMAGE) {
              showNotification("Permission/Billing issue. Try Gemini Flash?", 'error');
              setShowFlashSuggestion(true);
@@ -409,6 +434,7 @@ const App: React.FC = () => {
       }
     } finally {
       setIsGenerating(false);
+      stopHyperspaceLoop();
     }
   };
 
@@ -453,7 +479,11 @@ const App: React.FC = () => {
         const successful = batchResults.filter(res => res.status === 'fulfilled').map(res => (res as PromiseFulfilledResult<GeneratedImage>).value);
         if (successful.length > 0) {
             let currentGallery = galleryImages;
-            for (const img of successful) currentGallery = await saveToGallery(img);
+            for (const img of successful) {
+                try {
+                    currentGallery = await saveToGallery(img);
+                } catch (e) {}
+            }
             setGalleryImages(currentGallery);
             setGeneratedImages(successful);
             incrementUsage();
@@ -467,13 +497,18 @@ const App: React.FC = () => {
         playError();
     } finally {
         setIsGenerating(false);
+        stopHyperspaceLoop();
     }
   };
 
   const handleSaveToGallery = async (image: GeneratedImage) => {
-    const updatedGallery = await saveToGallery(image);
-    setGalleryImages(updatedGallery);
-    showNotification("Saved to Gallery", 'success');
+    try {
+        const updatedGallery = await saveToGallery(image);
+        setGalleryImages(updatedGallery);
+        showNotification("Saved to Gallery", 'success');
+    } catch (e) {
+        showNotification("Gallery Full. Please delete items.", 'error');
+    }
   };
 
   const handleUpscale = async (targetImage: GeneratedImage) => {
@@ -502,8 +537,10 @@ const App: React.FC = () => {
           }
           return [...prev, newImage];
       });
-      const updated = await saveToGallery(newImage);
-      setGalleryImages(updated);
+      try {
+        const updated = await saveToGallery(newImage);
+        setGalleryImages(updated);
+      } catch (e) {}
       incrementUsage();
       playSuccess();
       showNotification("Image upscaled to 4K.", 'success');
@@ -553,6 +590,29 @@ const App: React.FC = () => {
   const handleTemplateApply = (text: string) => {
       setConfig(prev => ({ ...prev, prompt: text }));
   };
+
+  const handleRecover = () => {
+      setGeneratedImages(null);
+      setRuntimeError(null);
+      setIsGenerating(false);
+      setIsUpscaling(false);
+      window.location.reload();
+  };
+
+  if (runtimeError) {
+      return (
+          <div className="min-h-screen bg-[#050510] flex items-center justify-center p-6 text-center">
+              <div className="max-w-md w-full p-8 rounded-3xl border border-red-500/20 bg-red-500/5 backdrop-blur-md">
+                  <Activity size={48} className="text-red-500 mx-auto mb-4 animate-pulse" />
+                  <h1 className="text-2xl font-bold font-rajdhani text-white mb-2">System Kernel Panic</h1>
+                  <p className="text-gray-400 text-sm mb-6 leading-relaxed">Critical state error occurred.</p>
+                  <button onClick={handleRecover} className="w-full py-3 rounded-xl bg-white text-black font-bold flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors">
+                      <RefreshCcw size={18} /> Restore Neural Link
+                  </button>
+              </div>
+          </div>
+      );
+  }
 
   if (hasKey === null) return <div className="min-h-screen bg-[#050510]" />;
 
@@ -615,10 +675,10 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen relative transition-colors duration-500 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+    <div className={`min-h-screen relative transition-all duration-500 ${isLight ? 'text-slate-900' : 'text-white'} ${isGenerating ? 'aether-warp' : ''}`}>
       <Background theme={config.theme} isGenerating={isGenerating} />
       <Header onOpenSettings={() => setIsSettingsOpen(true)} onOpenGallery={() => setIsGalleryOpen(true)} onOpenHelp={handleOpenHelp} theme={config.theme} />
-      <main className="container mx-auto px-4 pt-10 pb-20 relative z-10">
+      <main className={`container mx-auto px-4 pt-10 pb-20 relative z-10 transition-transform ${isGenerating ? 'hyperspace-vibration' : ''}`}>
         <div className="text-center mb-10 relative">
           <h1 className={`text-5xl md:text-6xl font-bold bg-clip-text text-transparent glow-text mb-4 tracking-tight ${isLight ? 'bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-500' : 'bg-gradient-to-r from-cyan-300 via-white to-purple-400'}`}>
             {config.mode === 'video' ? 'AI Video Generator' : 'AI Art Generator'}
@@ -658,6 +718,48 @@ const App: React.FC = () => {
             </div>
         </div>
       </main>
+
+      {/* NEW: Enhancement Choice Modal/Overlay */}
+      {enhancementChoices && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+              <div className="relative w-full max-w-2xl bg-[#0f172a] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                  <div className="p-6 border-b border-white/5 bg-[#131629] flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
+                              <Sparkles size={20} />
+                          </div>
+                          <h3 className="text-xl font-bold font-rajdhani text-white">Select Enhancement</h3>
+                      </div>
+                      <button onClick={() => setEnhancementChoices(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white">
+                          <X size={20} />
+                      </button>
+                  </div>
+                  <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
+                      {enhancementChoices.map((choice, i) => (
+                          <button 
+                            key={i} 
+                            onClick={() => selectEnhancedPrompt(choice.prompt)}
+                            className="w-full text-left p-5 rounded-2xl border border-white/5 bg-[#131629] hover:border-cyan-500/50 hover:bg-[#1a1f3d] transition-all group relative overflow-hidden"
+                          >
+                              <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <ChevronRight size={20} className="text-cyan-400" />
+                              </div>
+                              <span className="inline-block px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-widest mb-3 border border-purple-500/30">
+                                  {choice.title}
+                              </span>
+                              <p className="text-sm text-gray-200 leading-relaxed font-light italic">
+                                  "{choice.prompt}"
+                              </p>
+                          </button>
+                      ))}
+                  </div>
+                  <div className="p-6 bg-[#050510] text-center">
+                      <p className="text-xs text-gray-500 italic">Select the variation that fits your vision best.</p>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <div className="fixed bottom-6 left-6 z-40 flex flex-col gap-2">
          {(!window.aistudio && (getStoredApiKey() || isAccessGranted())) && (
             <button onClick={handleApiKeySelect} className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg hover:scale-105 duration-300 group relative border ${isLight ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' : 'bg-red-900/50 border-red-500/30 text-red-400 hover:bg-red-900/80'}`} title="Disconnect / Lock"><LogOut size={20} /></button>
