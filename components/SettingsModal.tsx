@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Moon, Sun, Key, CheckCircle, Monitor, Terminal, Shield, AlertTriangle, Lock, Cloud } from 'lucide-react';
+import { X, Moon, Sun, Key, CheckCircle, Monitor, Terminal, Shield, AlertTriangle, Lock, Cloud, UserCheck, ShieldCheck } from 'lucide-react';
 import { AppTheme } from '../types';
 import { getUsageStats, setDailyLimit, removeStoredApiKey, revokeAccess } from '../services/storageService';
 
@@ -8,7 +8,9 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   theme: AppTheme;
+  commanderName: string;
   onUpdateTheme: (theme: AppTheme) => void;
+  onUpdateCommanderName: (name: string) => void;
   onManageApiKey: () => void;
 }
 
@@ -16,7 +18,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen, 
   onClose, 
   theme, 
+  commanderName,
   onUpdateTheme,
+  onUpdateCommanderName,
   onManageApiKey
 }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'safety' | 'system'>('general');
@@ -80,6 +84,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 h-[480px] overflow-y-auto custom-scrollbar">
             {activeTab === 'general' && (
                 <div className="space-y-8 animate-in fade-in duration-300">
+                    <div className="space-y-4">
+                        <label className={`text-xs font-semibold uppercase tracking-wider ml-1 ${isLight ? 'text-slate-500' : 'text-cyan-500'}`}>Command Identity</label>
+                        <div className={`p-1 rounded-xl border flex items-center gap-3 px-4 py-3 transition-all ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-black/30 border-white/10 focus-within:border-cyan-500/50'}`}>
+                            <ShieldCheck size={20} className="text-cyan-500 shrink-0" />
+                            <div className="flex-1">
+                                <span className="text-[8px] uppercase tracking-widest text-gray-500 block mb-0.5">Neural Signature</span>
+                                <input 
+                                    type="text" 
+                                    value={commanderName} 
+                                    onChange={(e) => onUpdateCommanderName(e.target.value)}
+                                    placeholder="Enter callsign..."
+                                    className="bg-transparent text-sm font-bold w-full outline-none text-cyan-50 font-mono"
+                                />
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-gray-500 italic px-1">This callsign will be embedded in all mission logs and onboarding protocols.</p>
+                    </div>
+
                     <div className="space-y-3">
                         <label className={`text-xs font-semibold uppercase tracking-wider ml-1 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Interface Theme</label>
                         <div className="grid grid-cols-2 gap-3">

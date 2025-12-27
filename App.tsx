@@ -12,7 +12,7 @@ import SettingsModal from './components/SettingsModal';
 import OnboardingModal from './components/OnboardingModal';
 import { AppConfig, ModelType, GeneratedImage } from './types';
 import { generateImage, upscaleImage, enhancePrompt, generateVideo, shareMedia, describeImage, extractStyle, EnhancedPromptChoice } from './services/geminiService';
-import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen, isAccessGranted, grantAccess, revokeAccess, isLimitReached, incrementUsage } from './services/storageService';
+import { getGallery, saveToGallery, removeFromGallery, savePromptToHistory, generateUUID, getStoredApiKey, saveApiKey, removeStoredApiKey, hasSeenOnboarding, markOnboardingSeen, isAccessGranted, grantAccess, revokeAccess, isLimitReached, incrementUsage, getCommanderName, saveCommanderName } from './services/storageService';
 import { playPowerUp, playSuccess, playError, playClick, stopHyperspaceLoop } from './services/audioService';
 import { RefreshCcw, AlertCircle, Key, Zap, CheckCircle2, Info, LogOut, ShieldCheck, Lock, Activity, Sparkles, X, ChevronRight } from 'lucide-react';
 
@@ -42,6 +42,7 @@ const DEFAULT_CONFIG: AppConfig = {
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
+  const [commanderName, setCommanderName] = useState<string>('Commander');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpscaling, setIsUpscaling] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -73,6 +74,8 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
+        setCommanderName(getCommanderName());
+
         if (process.env.API_KEY && process.env.API_KEY !== '') {
             if (isAccessGranted()) {
                 setHasKey(true);
@@ -107,6 +110,11 @@ const App: React.FC = () => {
     };
     init();
   }, []);
+
+  const handleUpdateCommanderName = (name: string) => {
+      setCommanderName(name);
+      saveCommanderName(name);
+  };
 
   const handleCloseOnboarding = () => {
       setIsOnboardingOpen(false);
@@ -678,7 +686,7 @@ const App: React.FC = () => {
   return (
     <div className={`min-h-screen relative transition-all duration-500 ${isLight ? 'text-slate-900' : 'text-white'} ${isGenerating ? 'aether-warp' : ''}`}>
       <Background theme={config.theme} isGenerating={isGenerating} />
-      <Header onOpenSettings={() => setIsSettingsOpen(true)} onOpenGallery={() => setIsGalleryOpen(true)} onOpenHelp={handleOpenHelp} theme={config.theme} />
+      <Header commanderName={commanderName} onOpenSettings={() => setIsSettingsOpen(true)} onOpenGallery={() => setIsGalleryOpen(true)} onOpenHelp={handleOpenHelp} theme={config.theme} />
       <main className={`container mx-auto px-4 pt-10 pb-20 relative z-10 transition-transform ${isGenerating ? 'hyperspace-vibration' : ''}`}>
         <div className="text-center mb-10 relative">
           <h1 className={`text-5xl md:text-6xl font-bold bg-clip-text text-transparent glow-text mb-4 tracking-tight ${isLight ? 'bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-500' : 'bg-gradient-to-r from-cyan-300 via-white to-purple-400'}`}>
@@ -772,8 +780,8 @@ const App: React.FC = () => {
       )}
       <GalleryModal isOpen={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} images={galleryImages} onDelete={handleDeleteImage} onSelect={handleSelectImage} />
        <TemplateModal isOpen={isTemplatesOpen} onClose={() => setIsTemplatesOpen(false)} onApply={handleTemplateApply} theme={config.theme} />
-       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={config.theme} onUpdateTheme={(theme) => updateConfig('theme', theme)} onManageApiKey={handleApiKeySelect} />
-       <OnboardingModal isOpen={isOnboardingOpen} onClose={handleCloseOnboarding} theme={config.theme} />
+       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={config.theme} commanderName={commanderName} onUpdateTheme={(theme) => updateConfig('theme', theme)} onUpdateCommanderName={handleUpdateCommanderName} onManageApiKey={handleApiKeySelect} />
+       <OnboardingModal isOpen={isOnboardingOpen} onClose={handleCloseOnboarding} theme={config.theme} commanderName={commanderName} />
     </div>
   );
 };

@@ -10,6 +10,7 @@ const API_KEY_STORAGE_KEY = 'nebula_api_key';
 const ONBOARDING_KEY = 'nebula_mission_briefing_seen';
 const ACCESS_GRANTED_KEY = 'nebula_system_access_granted';
 const USAGE_STATS_KEY = 'nebula_usage_stats';
+const COMMANDER_NAME_KEY = 'nebula_commander_name';
 
 const MAX_GALLERY_ITEMS = 50; 
 const MAX_HISTORY_ITEMS = 20;
@@ -30,6 +31,22 @@ export const generateUUID = (): string => {
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
+};
+
+export const getCommanderName = (): string => {
+    try {
+        const stored = localStorage.getItem(COMMANDER_NAME_KEY);
+        if (stored) return stored;
+    } catch (e) {}
+    // Default fallback name
+    const randomId = Math.floor(100 + Math.random() * 900);
+    return `Recruit #${randomId}`;
+};
+
+export const saveCommanderName = (name: string) => {
+    try {
+        localStorage.setItem(COMMANDER_NAME_KEY, name);
+    } catch (e) {}
 };
 
 export const getUsageStats = (): UsageStats => {

@@ -1,61 +1,64 @@
 
 import React, { useState } from 'react';
-import { X, ChevronRight, ChevronLeft, Zap, Sparkles, Video, Terminal, Palette, BrainCircuit, Rocket } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Zap, Sparkles, Video, Terminal, Palette, BrainCircuit, Rocket, ShieldCheck, Pipette } from 'lucide-react';
 import { AppTheme } from '../types';
 
 interface OnboardingModalProps {
   isOpen: boolean;
   onClose: () => void;
   theme?: AppTheme;
+  commanderName: string;
 }
 
-const STEPS = [
+const getSteps = (commanderName: string) => [
     {
-        title: "Welcome to Nebula",
-        icon: Rocket,
-        description: "You have just accessed the most advanced AI interface on the web. This system is powered by Google's Gemini 3.0 Pro and Veo architectures. Let's get you briefed on the capabilities.",
-        color: "from-cyan-500 to-blue-500"
+        title: "Commander's Inauguration",
+        icon: ShieldCheck,
+        description: `Welcome to the bridge, ${commanderName}. You are now in control of the Nebula AI Neural-Nova interface—the most advanced generative command center in the quadrant.`,
+        color: "from-cyan-600 to-blue-700"
     },
     {
-        title: "The Engines",
+        title: "Multi-Engine Command",
         icon: Video,
-        description: "Switch between Image and Video modes in the top control bar. Use 'Gemini Flash' for speed, or switch to 'Gemini Pro' for 4K resolution and complex reasoning.",
-        color: "from-purple-500 to-pink-500"
+        description: "Toggle between Image and Video modes in the primary reactor. Use Gemini 2.5 Flash for rapid tactical previews, or engage Gemini 3.0 Pro for 4K high-fidelity output and complex reasoning.",
+        color: "from-purple-600 to-indigo-700"
     },
     {
-        title: "Quantum Mode",
-        icon: Zap,
-        description: "Located in Advanced Settings. When engaged, this forces the system to use maximum fidelity: 150 steps, strict guidance, and 4K resolution. It's slow, but the results are breathtaking.",
-        color: "from-yellow-400 to-orange-500"
+        title: "Style Stealing & Matching",
+        icon: Pipette,
+        description: "Upload a reference image and use the 'Steal Style' tool to extract artistic DNA. Alternatively, let 'Smart Match' deduce the perfect aesthetic from your text alone.",
+        color: "from-pink-500 to-rose-600"
     },
     {
-        title: "The Stylenator",
-        icon: Palette,
-        description: "Don't know what art style you want? Click the 'Style' button on the prompt bar. Use 'Smart Match' to let the AI deduce the best style from your words, or 'Surprise' for a random aesthetic.",
-        color: "from-green-400 to-emerald-600"
-    },
-    {
-        title: "Neural Link",
+        title: "The Neural Link",
         icon: Terminal,
-        description: "After generating an image, open it and click 'Neural Link'. The AI will analyze the visual data and write a sci-fi backstory or lore entry for your creation. It can even read it aloud.",
-        color: "from-red-400 to-rose-600"
+        description: "Every creation has a story. Use the Neural Link to analyze visual data and generate immersive lore. With Voice Mode 2.0, the system can even narrate these logs back to you.",
+        color: "from-emerald-500 to-teal-700"
     },
     {
-        title: "Magic Enhance",
+        title: "Magic Prompt Alchemy",
         icon: Sparkles,
-        description: "Writer's block? Type a simple word like 'Cat' and click the Magic Wand icon. Gemini 3.0 Pro will rewrite it into a highly detailed, professional prompt instantly.",
-        color: "from-cyan-400 to-indigo-500"
+        description: "Input a simple concept and click the Magic Wand. Gemini 3.0 Pro will expand your thought into a master-level prompt, providing three distinct variations for you to choose from.",
+        color: "from-amber-500 to-orange-600"
+    },
+    {
+        title: "Quantum Fidelity",
+        icon: Zap,
+        description: "In the Advanced Tab, you can engage Quantum Mode. This forces the engine to run maximum inference steps and 4K resolution, reserved for your most critical art pieces.",
+        color: "from-blue-500 to-cyan-400"
     }
 ];
 
-const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, theme = 'Nebula Dark' }) => {
+const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, theme = 'Nebula Dark', commanderName }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const isLight = theme === 'Starlight Light';
 
     if (!isOpen) return null;
 
+    const steps = getSteps(commanderName);
+
     const handleNext = () => {
-        if (currentStep < STEPS.length - 1) {
+        if (currentStep < steps.length - 1) {
             setCurrentStep(curr => curr + 1);
         } else {
             onClose();
@@ -68,7 +71,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, them
         }
     };
 
-    const step = STEPS[currentStep];
+    const step = steps[currentStep];
     const Icon = step.icon;
 
     return (
@@ -107,7 +110,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, them
                 `}>
                     <div className="flex-1">
                         <div className="flex justify-between items-center mb-6">
-                            <span className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded border
+                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded border
                                 ${isLight ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-white/5 text-cyan-400 border-cyan-500/20'}
                             `}>
                                 Mission Briefing
@@ -128,7 +131,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, them
                     <div className="mt-8 flex items-center justify-between">
                         {/* Dots */}
                         <div className="flex gap-2">
-                            {STEPS.map((_, idx) => (
+                            {steps.map((_, idx) => (
                                 <div 
                                     key={idx}
                                     className={`w-2 h-2 rounded-full transition-all duration-300 
@@ -157,7 +160,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, them
                                     bg-gradient-to-r ${step.color}
                                 `}
                              >
-                                {currentStep === STEPS.length - 1 ? 'Launch System' : 'Next'} 
+                                {currentStep === steps.length - 1 ? 'Launch System' : 'Next'} 
                                 <ChevronRight size={18} />
                              </button>
                         </div>

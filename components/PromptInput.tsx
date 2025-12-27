@@ -489,6 +489,16 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
   const currentPool = mode === 'video' ? VIDEO_PROMPTS : SURPRISE_PROMPTS;
 
+  // RECALIBRATED PADDING LOGIC:
+  // If we have video chips AND an image, we need deep bottom padding (pb-40).
+  // If we have just one or the other, pb-28 is sufficient.
+  // Default is pb-4.
+  const dynamicPadding = (inputImage && mode === 'video' && !isJson) 
+    ? 'pb-40' 
+    : (inputImage || (mode === 'video' && !isJson)) 
+        ? 'pb-28' 
+        : 'pb-4';
+
   return (
     <div className={`relative w-full rounded-2xl transition-all duration-300 p-1 group border flex flex-col
         ${isMenuOpen ? 'z-40' : 'z-20'}
@@ -509,7 +519,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
              </div>
            )}
             
-           {/* Badges Container - changed to flex row to avoid vertical overlap with text */}
+           {/* Badges Container */}
            <div className="absolute top-3 right-4 z-10 flex items-center gap-2 pointer-events-none">
                {/* JSON Mode Indicator */}
                {isJson && (
@@ -536,9 +546,9 @@ const PromptInput: React.FC<PromptInputProps> = ({
 
            <textarea
             ref={textareaRef}
-            className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[120px] transition-colors
+            className={`w-full bg-transparent p-6 text-sm md:text-base outline-none resize-none font-light tracking-wide min-h-[150px] transition-colors
               ${isLight ? 'text-slate-800 placeholder-slate-400' : 'text-gray-100 placeholder-gray-500'}
-              ${inputImage ? 'pb-24' : 'pb-4'} 
+              ${dynamicPadding}
               ${isRolling ? 'blur-[1px] opacity-80' : 'blur-0 opacity-100'}
             `}
             placeholder={isListening ? "Listening..." : placeholder}
@@ -567,9 +577,11 @@ const PromptInput: React.FC<PromptInputProps> = ({
               </div>
           )}
 
-          {/* Video Camera Controls Chips (Only in Video Mode) */}
+          {/* Video Camera Controls Chips (Vertical Stacking Logic) */}
           {mode === 'video' && !isJson && (
-             <div className="absolute bottom-16 left-0 w-full px-6 flex gap-2 overflow-x-auto no-scrollbar mask-linear-fade">
+             <div className={`absolute left-0 w-full px-6 flex gap-2 overflow-x-auto no-scrollbar mask-linear-fade py-2 bg-black/10 backdrop-blur-[2px] border-y border-white/5
+                ${inputImage ? 'bottom-[84px]' : 'bottom-16'}
+             `}>
                   <div className={`shrink-0 text-[10px] font-bold uppercase tracking-widest py-1.5 flex items-center ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
                       Director:
                   </div>
@@ -593,7 +605,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
              </div>
           )}
 
-          {/* Image Preview Area */}
+          {/* Image Preview Area - Lower Anchor */}
           {inputImage && (
             <div className="absolute bottom-16 left-6 z-10 animate-in fade-in slide-in-from-bottom-2 flex items-end gap-2">
               <div className={`relative group/image inline-block rounded-lg overflow-hidden border shadow-lg
@@ -854,7 +866,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                                                 className={`text-left px-2 py-1.5 rounded text-[10px] font-medium transition-all border flex items-center gap-2
                                                     ${currentStyle === style.value
                                                         ? (isLight ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-900/30 border-cyan-500/50 text-cyan-300')
-                                                        : (isLight ? 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10')}
+                                                        : (isLight ? 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100' : 'bg-white/5 text-gray-400 hover:bg-white/10')}
                                                 `}
                                             >
                                                 <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${style.color}`} />
