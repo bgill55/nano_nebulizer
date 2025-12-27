@@ -126,9 +126,6 @@ export const extractStyle = async (imageBase64: string): Promise<string> => {
     return response.text?.trim() || "";
 };
 
-/**
- * Updated to return a list of 3 structured prompt choices
- */
 export interface EnhancedPromptChoice {
     title: string;
     prompt: string;
@@ -228,18 +225,48 @@ export const shareMedia = async (url: string, title: string, text: string): Prom
 
 export const generateVideo = async (config: AppConfig): Promise<string> => {
     const ai = getClient();
-    let operation = await ai.models.generateVideos({
-        model: ModelType.VEO_FAST,
-        prompt: config.prompt,
-        config: { numberOfVideos: 1, resolution: '720p', aspectRatio: config.aspectRatio as any }
-    });
+    
+    // Prepare video generation payload
+    const payload: any = {
+        model: config.model || ModelType.VEO_FAST,
+        prompt: config.prompt || "Cinematic masterpiece",
+        config: { 
+            numberOfVideos: 1, 
+            resolution: '720p', 
+            aspectRatio: config.aspectRatio as any 
+        }
+    };
+
+    // Support Image-to-Video if input image is present
+    if (config.inputImage) {
+        const base64Data = config.inputImage.replace(/^data:image\/\w+;base64,/, "");
+        const mimeType = config.inputImage.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
+        payload.image = {
+            imageBytes: base64Data,
+            mimeType: mimeType
+        };
+    }
+
+    let operation = await ai.models.generateVideos(payload);
+
+    // Poll for operation completion
     while (!operation.done) {
-        await new Promise(r => setTimeout(r, 7000));
+        await new Promise(r => setTimeout(r, 10000)); // Poll every 10 seconds
         operation = await ai.operations.getVideosOperation({ operation: operation });
     }
+
+    // Check for engine errors
+    if (operation.error) {
+        throw new Error(`Veo Engine Error: ${operation.error.message || 'Operation failed'}`);
+    }
+
     const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!videoUri) {
+        throw new Error("Video generation completed but no URI was returned.");
+    }
+
     const key = process.env.API_KEY || getStoredApiKey();
-    return `${videoUri}${videoUri?.includes('?') ? '&' : '?'}key=${key}`;
+    return `${videoUri}${videoUri.includes('?') ? '&' : '?'}key=${key}`;
 };
 
 export const upscaleImage = async (imageBase64: string, aspectRatio: string): Promise<string> => {

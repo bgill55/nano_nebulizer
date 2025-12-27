@@ -66,7 +66,6 @@ const App: React.FC = () => {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // New Enhancement State
   const [enhancementChoices, setEnhancementChoices] = useState<EnhancedPromptChoice[] | null>(null);
 
   const isLight = config.theme === 'Starlight Light';
@@ -429,7 +428,13 @@ const App: React.FC = () => {
       playError();
       const msg = err.message || "Failed to generate.";
       
-      if (msg.toLowerCase().includes('safety') || msg.toLowerCase().includes('blocked')) {
+      // VEO KEY RECOVERY LOGIC
+      if (msg.includes("Requested entity was not found") || msg.includes("entity was not found")) {
+          showNotification("Veo Engine requires a paid API key. Please select a compatible project.", 'warning');
+          if (window.aistudio) {
+              window.aistudio.openSelectKey();
+          }
+      } else if (msg.toLowerCase().includes('safety') || msg.toLowerCase().includes('blocked')) {
           showNotification("Generation blocked by model filters.", 'error');
       } else if (msg.includes('403') || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('quota')) {
           if (config.model !== ModelType.GEMINI_FLASH_IMAGE) {
@@ -728,7 +733,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* NEW: Enhancement Choice Modal/Overlay */}
       {enhancementChoices && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
               <div className="relative w-full max-w-2xl bg-[#0f172a] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
@@ -761,9 +765,6 @@ const App: React.FC = () => {
                               </p>
                           </button>
                       ))}
-                  </div>
-                  <div className="p-6 bg-[#050510] text-center">
-                      <p className="text-xs text-gray-500 italic">Select the variation that fits your vision best.</p>
                   </div>
               </div>
           </div>
